@@ -60,6 +60,7 @@ public class ClientConsole {
                 
                 processUserInput(userInput);
             }
+            
 
         } catch (IOException e) {
             System.err.println("Client exception: " + e.getMessage());
@@ -218,12 +219,16 @@ public class ClientConsole {
     private void printHelp() {
         System.out.println("--- Available Commands ---");
         System.out.println("REGISTER <user> <pass> <email>   - Register a new account");
-        System.out.println("LOGIN <user> <pass>            - Log in to your account");
+        System.out.println("LOGIN <user> <pass>              - Log in to your account");
         System.out.println("LS                               - List files and folders in current directory");
+        System.out.println("LS --shared                      - List all files that other users have shared with you.");
         System.out.println("MKDIR <folder_name>              - Create a new directory");
         System.out.println("UPLOAD <local_file_path>         - Upload a file to the current directory");
-        System.out.println("DOWNLOAD <file_id> <save_path>     - Download a file by its ID");
+        System.out.println("DOWNLOAD <file_id> <save_path>   - Download a file by its ID");
         System.out.println("DELETE <file_id>                 - Delete a file by its ID");
+        System.out.println("SHARE <file_id> <user_id>        - Share one of your files with another user");
+        System.out.println("CREATE_GROUP <group_name>        - Create a new user group");
+        System.out.println("INVITE <group_id> <user_id>      - Invite a user to join your group");
         System.out.println("QUIT                             - Disconnect from the server");
         System.out.println("-------------------------");
     }

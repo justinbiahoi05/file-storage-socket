@@ -12,17 +12,20 @@ import java.util.UUID;
 
 import com.dut.filestorage.model.dao.FileDAO;
 import com.dut.filestorage.model.dao.FolderDAO;
+import com.dut.filestorage.model.dao.ShareDAO;
 import com.dut.filestorage.model.entity.File;
 import com.dut.filestorage.model.entity.Folder;
 
 public class FileSystemService {
     private FolderDAO folderDAO;
     private FileDAO fileDAO;
+     private ShareDAO shareDAO;
     private final Path rootLocation = Paths.get("uploads"); // Thư mục lưu file vật lý
 
     public FileSystemService() {
         this.folderDAO = new FolderDAO();
-        this.fileDAO = new FileDAO(); // Khởi tạo FileDAO
+        this.fileDAO = new FileDAO();
+        this.shareDAO = new ShareDAO();
 
         try {
             Files.createDirectories(rootLocation);
@@ -35,7 +38,6 @@ public class FileSystemService {
         if (folderName == null || folderName.trim().isEmpty() || folderName.contains(" ")) {
             throw new Exception("Folder name cannot be empty or contain spaces.");
         }
-        // TODO: Kiểm tra tên thư mục trùng lặp trong cùng thư mục cha
 
         Folder newFolder = new Folder();
         newFolder.setFolderName(folderName);
@@ -79,27 +81,29 @@ public class FileSystemService {
     }
 
      // Xử lý logic download
-    public void downloadFile(long fileId, Long userId, OutputStream outputStream) throws Exception {
+    public void downloadFile(long fileId, Long requestUserId, OutputStream outputStream) throws Exception {
         File file = fileDAO.findById(fileId);
         
-        // Kiểm tra xem file có tồn tại không
         if (file == null) {
             throw new Exception("File not found.");
         }
-        // Kiểm tra quyền sở hữu
-        if (!file.getOwnerId().equals(userId)) {
-            // TODO: Sau này sẽ kiểm tra cả quyền được chia sẻ
-            throw new Exception("Access denied.");
-        }
         
-        // Đọc file vật lý và ghi ra output stream của socket
+        boolean isOwner = file.getOwnerId().equals(requestUserId);
+        boolean isSharedWith = shareDAO.isFileSharedWithUser(fileId, requestUserId);
+
+        // Người dùng được phép truy cập NẾU họ là chủ sở hữu HOẶC file được chia sẻ cho họ
+        if (!isOwner && !isSharedWith) {
+            throw new Exception("Access denied. You do not have permission to download this file.");
+        }
+       
+        // Nếu qua được vòng kiểm tra, tiếp tục gửi file như bình thường
         java.io.File physicalFile = new java.io.File(file.getStoredPath());
         if (!physicalFile.exists()) {
             throw new Exception("Physical file is missing on server.");
         }
         
         try (FileInputStream fis = new FileInputStream(physicalFile)) {
-            byte[] buffer = new byte[4096];
+            byte[] buffer = new byte[8192];
             int bytesRead;
             while ((bytesRead = fis.read(buffer)) != -1) {
                 outputStream.write(buffer, 0, bytesRead);
@@ -109,25 +113,40 @@ public class FileSystemService {
     }
 
     // Xử lý logic xóa file
-    public void deleteFile(long fileId, Long userId) throws Exception {
+     public String deleteOrRemoveShare(long fileId, Long requestUserId) throws Exception {
         File file = fileDAO.findById(fileId);
         
         if (file == null) {
             throw new Exception("File not found.");
         }
-        if (!file.getOwnerId().equals(userId)) {
-            throw new Exception("Access denied. You are not the owner.");
-        }
 
-        // 1. Xóa file vật lý
-        java.io.File physicalFile = new java.io.File(file.getStoredPath());
-        if (physicalFile.exists()) {
-            if (!physicalFile.delete()) {
-                throw new Exception("Failed to delete physical file.");
+        // Kịch bản 1: Người yêu cầu là CHỦ SỞ HỮU
+        if (file.getOwnerId().equals(requestUserId)) {
+            // Xóa vĩnh viễn file
+           
+            // Xóa file vật lý
+            java.io.File physicalFile = new java.io.File(file.getStoredPath());
+            if (physicalFile.exists()) {
+                if (!physicalFile.delete()) {
+                    throw new Exception("Failed to delete physical file.");
+                }
             }
-        }
+            // Xóa bản ghi trong CSDL
+            fileDAO.deleteById(fileId);
 
-        // 2. Xóa bản ghi trong CSDL
-        fileDAO.deleteById(fileId);
+            return "File deleted permanently."; // Trả về thông báo để Controller biết
+        }
+        
+        // Kịch bản 2: Người yêu cầu là NGƯỜI ĐƯỢC CHIA SẺ
+        else if (shareDAO.isFileSharedWithUser(fileId, requestUserId)) {
+            // Chỉ xóa lượt chia sẻ
+            shareDAO.removeShare(fileId, requestUserId);
+            return "File removed from your shared list."; // Trả về thông báo khác
+        }
+        
+        // Kịch bản 3: Không có quyền gì cả
+        else {
+            throw new Exception("Access denied. You do not have permission to delete this file.");
+        }
     }
 }

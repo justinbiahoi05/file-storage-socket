@@ -103,4 +103,37 @@ public class FileDAO {
             pstmt.executeUpdate();
         }
     }
+    public List<File> findSharedWithUser(long userId) throws SQLException {
+        List<File> files = new ArrayList<>();
+        String sql = "SELECT f.* FROM files f " +
+                    "INNER JOIN shares s ON f.file_id = s.file_id " + 
+                    "WHERE s.shared_with_user_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setLong(1, userId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    File file = new File();
+
+                    // Ánh xạ dữ liệu từ CSDL vào đối tượng file
+                    file.setId(rs.getLong("file_id"));
+                    file.setFileName(rs.getString("file_name"));
+                    file.setStoredPath(rs.getString("stored_path"));
+                    file.setFileSize(rs.getLong("file_size"));
+                    file.setFileType(rs.getString("file_type"));
+                    if (rs.getTimestamp("upload_date") != null) {
+                        file.setUploadDate(rs.getTimestamp("upload_date").toLocalDateTime());
+                    }
+                    file.setOwnerId(rs.getLong("owner_id"));
+                    long folderId = rs.getLong("folder_id");
+                    if (!rs.wasNull()) {
+                        file.setFolderId(folderId);
+                    }
+                    files.add(file);
+                }
+            }
+        }
+        return files;
+    }
 }
