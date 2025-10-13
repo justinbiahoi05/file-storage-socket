@@ -16,16 +16,23 @@ import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.geometry.Insets;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.layout.GridPane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
@@ -45,6 +52,7 @@ public class MainViewController {
     @FXML private Button inviteButton;
     @FXML private Button kickButton;
     @FXML private Button backButton;
+    @FXML private Button accessLinkButton;
     
     // --- Class Members ---
     private SocketClient socketClient;
@@ -374,24 +382,105 @@ public class MainViewController {
         }
         File selectedFile = (File) selectedItem;
 
-        TextInputDialog dialog = new TextInputDialog();
-        dialog.setTitle("Share File");
-        dialog.setHeaderText("Share '" + selectedFile.getFileName() + "' with another user.");
-        dialog.setContentText("Enter username:");
+        try {
+            FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("share-dialog.fxml"));
+            
+            // Tạo một Dialog mới và set DialogPane đã load từ FXML
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setDialogPane(loader.load());
+            dialog.setTitle("Share File");
 
-        Optional<String> result = dialog.showAndWait();
-        result.ifPresent(username -> {
-            new Thread(() -> {
-                try {
-                    String response = socketClient.shareFile(selectedFile.getId(), username);
-                    Platform.runLater(() -> showAlert(AlertType.INFORMATION, "Share Status", response));
-                } catch (IOException e) { /* ... */ }
-            }).start();
+            // Lấy controller và truyền thông tin file vào
+            ShareDialogController controller = loader.getController();
+            controller.setFileInfo(selectedFile);
+
+            // Hiển thị dialog và chờ kết quả
+            Optional<ButtonType> result = dialog.showAndWait();
+
+            // Xử lý khi người dùng bấm nút "Share with User"
+            if (result.isPresent() && result.get().getButtonData() == ButtonBar.ButtonData.OK_DONE) {
+                String username = controller.getUsernameToShare();
+                if (username != null && !username.trim().isEmpty()) {
+                    new Thread(() -> {
+                        try {
+                            String response = socketClient.shareFile(selectedFile.getId(), username);
+                            Platform.runLater(() -> showAlert(AlertType.INFORMATION, "Share Status", response));
+                        } catch (IOException e) {
+                            Platform.runLater(() -> showAlert(AlertType.ERROR, "Share Error", "Failed to share file."));
+                        }
+                    }).start();
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert(AlertType.ERROR, "Error", "Could not open share dialog.");
+        }
+    }
+
+    @FXML
+    protected void onAccessLinkClick() {
+        // 1. TẠO DIALOG TÙY CHỈNH
+        Dialog<String[]> dialog = new Dialog<>();
+        dialog.setTitle("Access Public Link");
+        dialog.setHeaderText("Enter the token you received to access the file.");
+
+        // 2. TẠO CÁC NÚT BẤM
+        ButtonType accessButtonType = new ButtonType("Access File", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(accessButtonType, ButtonType.CANCEL);
+
+        // 3. TẠO LAYOUT VÀ CÁC TRƯỜNG NHẬP LIỆU
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        TextField tokenField = new TextField();
+        tokenField.setPromptText("Enter token here");
+        PasswordField passwordField = new PasswordField();
+        passwordField.setPromptText("Password (if required)");
+
+        grid.add(new Label("Token:"), 0, 0);
+        grid.add(tokenField, 1, 0);
+        grid.add(new Label("Password:"), 0, 1);
+        grid.add(passwordField, 1, 1);
+        
+        dialog.getDialogPane().setContent(grid);
+
+        // Yêu cầu focus vào ô token khi dialog mở ra
+        Platform.runLater(tokenField::requestFocus);
+        
+        // 4. CHUYỂN ĐỔI KẾT QUẢ KHI NGƯỜI DÙNG BẤM NÚT "ACCESS FILE"
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == accessButtonType) {
+                // Trả về một mảng chứa token và password
+                return new String[]{tokenField.getText(), passwordField.getText()};
+            }
+            return null;
+        });
+
+        // 5. HIỂN THỊ DIALOG VÀ CHỜ KẾT QUẢ
+        Optional<String[]> result = dialog.showAndWait();
+
+        // 6. XỬ LÝ KẾT QUẢ
+        result.ifPresent(credentials -> {
+            String token = credentials[0].trim();
+            String password = credentials[1];
+
+            if (!token.isEmpty()) {
+                // Mở cửa sổ chọn nơi lưu file
+                DirectoryChooser directoryChooser = new DirectoryChooser();
+                directoryChooser.setTitle("Select Save Location for Linked File");
+                java.io.File saveDirectory = directoryChooser.showDialog(mainTableView.getScene().getWindow());
+
+                if (saveDirectory != null) {
+                    // Bắt đầu luồng download bằng token
+                    downloadFileByTokenThread(token, password, saveDirectory.getAbsolutePath());
+                }
+            }
         });
     }
     
     @FXML
-   
     protected void onLogoutAction() {
         // Hiển thị hộp thoại xác nhận để tránh người dùng bấm nhầm
         if (confirmAction("Confirm Logout", "Are you sure you want to log out and return to the login screen?")) {
@@ -481,6 +570,22 @@ public class MainViewController {
         alert.setContentText(content);
         Optional<ButtonType> result = alert.showAndWait();
         return result.isPresent() && result.get() == ButtonType.OK;
+    }
+
+    private void downloadFileByTokenThread(String token, String password, String savePath) {
+        statusLabel.setText("Accessing link and downloading...");
+        new Thread(() -> {
+            try {
+                // Gọi đến hàm trong SocketClient mà mình sẽ tạo ở bước tiếp theo
+                String response = socketClient.downloadFileByToken(token, password, savePath);
+                Platform.runLater(() -> {
+                    showAlert(AlertType.INFORMATION, "Download Status", response);
+                    // Không cần refresh view vì file này không thuộc về người dùng
+                });
+            } catch (IOException e) {
+                Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Action failed: " + e.getMessage()));
+            }
+        }).start();
     }
 
     private void refreshCurrentView() {

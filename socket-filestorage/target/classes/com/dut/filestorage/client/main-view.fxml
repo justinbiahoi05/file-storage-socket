@@ -10,7 +10,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="730.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="789.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
    <top>
       <VBox prefHeight="43.0" prefWidth="600.0" BorderPane.alignment="CENTER">
          <children>
@@ -21,6 +21,7 @@
                   <Button fx:id="deleteButton" mnemonicParsing="false" onAction="#onDeleteButtonClick" text="Delete" />
                   <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" text="Share" />
                   <Button fx:id="newGroupButton" mnemonicParsing="false" onAction="#onNewGroupButtonClick" text="New Group" />
+                  <Button fx:id="accessLinkButton" mnemonicParsing="false" onAction="#onAccessLinkClick" text="Access Link" />
                   <Button fx:id="inviteButton" mnemonicParsing="false" onAction="#onInviteMemberClick" text="Invite Member" visible="false" />
                   <Button fx:id="kickButton" mnemonicParsing="false" onAction="#onKickMemberClick" text="Kick Member" visible="false" />
                   <Button fx:id="viewMembersButton" mnemonicParsing="false" onAction="#onViewMembersClick" text="View Members" visible="false" />
@@ -47,7 +48,7 @@
       </VBox>
    </left>
    <center>
-      <TableView fx:id="mainTableView" prefHeight="338.0" prefWidth="620.0" BorderPane.alignment="CENTER">
+      <TableView fx:id="mainTableView" prefHeight="338.0" prefWidth="726.0" BorderPane.alignment="CENTER">
         <columns>
           <TableColumn fx:id="nameColumn" prefWidth="208.79999542236328" text="Name" />
           <TableColumn fx:id="sizeColumn" prefWidth="184.0" text="Size (bytes)" />

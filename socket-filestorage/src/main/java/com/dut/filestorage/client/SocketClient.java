@@ -250,6 +250,55 @@ public class SocketClient {
         return sendSingleLineCommand("GROUP_DELETE " + groupId);
     }
 
+    public String createPublicLink(long fileId, String password, String expiresIn) throws IOException {
+        String command = "LINK_CREATE " + fileId;
+        if (password != null && !password.isEmpty()) {
+            command += " --password " + password;
+        }
+        if (expiresIn != null) {
+            command += " --expires_in " + expiresIn;
+        }
+        return sendSingleLineCommand(command);
+    }
+    public String downloadFileByToken(String token, String password, String saveDirectoryPath) throws IOException {
+        // Xây dựng lệnh, gửi cả mật khẩu dù nó là chuỗi rỗng
+        String command = "ACCESS_LINK " + token + " " + password;
+        out.println(command);
+        
+        String serverResponse = in.readLine();
+
+        if (serverResponse == null || !serverResponse.startsWith("201 INFO")) {
+            return "Server error: " + (serverResponse != null ? serverResponse : "No response");
+        }
+        
+        String[] infoParts = serverResponse.split(" ");
+        String fileName = infoParts[2];
+        long fileSize = Long.parseLong(infoParts[3]);
+
+        out.println("CLIENT_READY");
+        
+        java.io.File saveDir = new java.io.File(saveDirectoryPath);
+        if (!saveDir.exists()) saveDir.mkdirs();
+
+        try (FileOutputStream fos = new FileOutputStream(new java.io.File(saveDir, fileName))) {
+            InputStream socketInputStream = socket.getInputStream();
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            long totalBytesRead = 0;
+            
+            while (totalBytesRead < fileSize && (bytesRead = socketInputStream.read(buffer, 0, (int) Math.min(buffer.length, fileSize - totalBytesRead))) != -1) {
+                fos.write(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+            }
+
+            if (totalBytesRead == fileSize) {
+                return "200 OK Download completed successfully via link.";
+            } else {
+                return "500 ERROR Download incomplete.";
+            }
+        }
+    }
+
     // --- HÀM TIỆN ÍCH VÀ DỌN DẸP ---
 
     private List<File> parseFileList(List<String> responseLines) {
@@ -257,8 +306,6 @@ public class SocketClient {
         if (responseLines.isEmpty() || !responseLines.get(0).startsWith("200 OK")) {
             return files;
         }
-
-        // --- PHẦN SỬA LỖI NẰM Ở ĐÂY ---
 
         // 1. Định nghĩa một "khuôn mẫu" (Pattern) để tìm kiếm thông tin
         // Pattern này sẽ tìm các nhóm dữ liệu được đánh dấu bằng dấu ngoặc đơn ()

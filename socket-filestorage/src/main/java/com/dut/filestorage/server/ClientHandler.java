@@ -77,6 +77,12 @@ public class ClientHandler extends Thread {
             case "GROUP_INVITE": handleGroupInvite(parts); break;
             case "GROUP_KICK": handleGroupKick(parts); break;
             case "GROUP_DELETE": handleGroupDelete(parts); break;
+            case "LINK_CREATE":
+                handleLinkCreate(parts);
+                break;
+            case "ACCESS_LINK":
+                handleAccessLink(parts);
+                break;
             default:
                 out.println("500 ERROR Unknown command: " + command);
         }
@@ -151,7 +157,6 @@ public class ClientHandler extends Thread {
                     break; // Tìm thấy thì dừng lại
                 }
             }
-            // --- KẾT THÚC SỬA LỖI ---
 
             // Bây giờ, biến `groupId` đã có giá trị đúng (hoặc vẫn là null nếu không có --group)
             
@@ -334,6 +339,75 @@ public class ClientHandler extends Thread {
             out.println("400 ERROR " + e.getMessage());
         }
     } 
+    private void handleLinkCreate(String[] parts) {
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
+        // Cú pháp: LINK_CREATE <file_id> [--password <pass>] [--expires_in <time>]
+        if (parts.length < 2) { out.println("400 ERROR Usage: LINK_CREATE <file_id> [options]"); return; }
+
+        try {
+            long fileId = Long.parseLong(parts[1]);
+            String password = null;
+            String expiresIn = null;
+
+            // Phân tích các tham số tùy chọn
+            for (int i = 2; i < parts.length - 1; i++) {
+                if ("--password".equalsIgnoreCase(parts[i])) {
+                    password = parts[i + 1];
+                }
+                if ("--expires_in".equalsIgnoreCase(parts[i])) {
+                    expiresIn = parts[i + 1];
+                }
+            }
+
+            String token = collaborationService.createPublicLink(fileId, loggedInUser.getId(), password, expiresIn);
+            
+            // Giả sử link có dạng http://yourdomain.com/share/TOKEN
+            // Trong đồ án, mình chỉ cần trả về token
+            out.println("200 OK Link created. Token: " + token);
+            
+        } catch (NumberFormatException e) {
+            out.println("400 ERROR Invalid file ID.");
+        } catch (Exception e) {
+            out.println("400 ERROR " + e.getMessage());
+        }
+    }
+    private void handleAccessLink(String[] parts) {
+        // Cú pháp: ACCESS_LINK <token> [password]
+        if (parts.length < 2) {
+            out.println("400 ERROR Bad syntax. Usage: ACCESS_LINK <token> [password]");
+            return;
+        }
+
+        try {
+            String token = parts[1];
+            // Lấy mật khẩu nếu có, nếu không thì là chuỗi rỗng
+            String password = (parts.length > 2) ? parts[2] : "";
+            
+            // --- GỌI SERVICE ĐỂ XÁC THỰC ---
+            // Hàm này sẽ ném Exception nếu token/password/thời gian sai
+            File fileToDownload = collaborationService.validatePublicLink(token, password);
+            
+            // Nếu không có lỗi, nghĩa là link hợp lệ.
+            // Bắt đầu quy trình download y hệt như handleDownload
+            
+            // 1. Gửi thông tin file về cho client trước
+            out.println("201 INFO " + fileToDownload.getFileName() + " " + fileToDownload.getFileSize());
+            
+            // 2. Chờ client xác nhận sẵn sàng
+            String clientResponse = in.readLine();
+            if (clientResponse != null && clientResponse.equals("CLIENT_READY")) {
+                // 3. Bắt đầu gửi dữ liệu file
+                // Dùng hàm streamFileToOutput đã có sẵn
+                fileSystemService.streamFileToOutput(fileToDownload.getId(), clientSocket.getOutputStream());
+            } else {
+                System.out.println("Client canceled token download for file ID: " + fileToDownload.getId());
+            }
+
+        } catch (Exception e) {
+            // Bất kỳ lỗi nào từ service (Link not found, Expired, Invalid password) sẽ được bắt ở đây
+            out.println("400 ERROR " + e.getMessage());
+        }
+    }
 
     // --- CÁC HÀM PHỤ ĐỂ IN DANH SÁCH ---
     private void printFileList(List<File> files, String header) {

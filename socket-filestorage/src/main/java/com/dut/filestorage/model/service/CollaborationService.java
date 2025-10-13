@@ -1,18 +1,23 @@
 package com.dut.filestorage.model.service;
 
 import java.sql.SQLException;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import com.dut.filestorage.model.dao.FileDAO;
 import com.dut.filestorage.model.dao.GroupDAO;
 import com.dut.filestorage.model.dao.GroupMemberDAO;
+import com.dut.filestorage.model.dao.PublicLinkDAO;
 import com.dut.filestorage.model.dao.ShareDAO;
 import com.dut.filestorage.model.dao.UserDAO;
 import com.dut.filestorage.model.entity.File;
 import com.dut.filestorage.model.entity.Group;
 import com.dut.filestorage.model.entity.GroupMember;
+import com.dut.filestorage.model.entity.PublicLink;
 import com.dut.filestorage.model.entity.Share;
 import com.dut.filestorage.model.entity.User;
+import com.dut.filestorage.utils.PasswordUtils;
 
 public class CollaborationService {
     private ShareDAO shareDAO;
@@ -20,6 +25,7 @@ public class CollaborationService {
     private UserDAO userDAO;
     private GroupDAO groupDAO;
     private GroupMemberDAO groupMemberDAO;
+    private PublicLinkDAO publicLinkDAO;
 
     public CollaborationService(UserDAO userDAO) {
         this.userDAO = userDAO;
@@ -27,6 +33,7 @@ public class CollaborationService {
         this.fileDAO = new FileDAO();
         this.groupDAO = new GroupDAO();
         this.groupMemberDAO = new GroupMemberDAO();
+        this.publicLinkDAO = new PublicLinkDAO();
     }
 
     // --- SHARE LOGIC ---
@@ -123,5 +130,67 @@ public class CollaborationService {
     
     public boolean isUserMemberOfGroup(long groupId, long userId) throws SQLException {
         return groupMemberDAO.isMember(groupId, userId);
+    }
+
+    // --- PUBLIC LINK LOGIC ---
+     public String createPublicLink(long fileId, long ownerId, String password, String expiresInString) throws Exception {
+        File file = fileDAO.findById(fileId);
+        if (file == null) throw new Exception("File not found.");
+        if (!file.getOwnerId().equals(ownerId)) throw new Exception("Access denied. You are not the owner of this file.");
+
+        String token = UUID.randomUUID().toString();
+        String passwordHash = null;
+        if (password != null && !password.isEmpty()) {
+            passwordHash = PasswordUtils.hashPassword(password);
+        }
+
+        LocalDateTime expiresAt = null;
+        if (expiresInString != null && !expiresInString.isEmpty()) {
+            expiresAt = parseExpiresIn(expiresInString);
+        }
+        
+        PublicLink newLink = new PublicLink();
+        newLink.setToken(token);
+        newLink.setPasswordHash(passwordHash);
+        newLink.setExpiresAt(expiresAt);
+        newLink.setFileId(fileId);
+        
+        publicLinkDAO.save(newLink);
+        
+        // Trả về token để client có thể xây dựng URL
+        return token;
+    }
+
+    // Hàm để phân tích chuỗi thời gian
+    private LocalDateTime parseExpiresIn(String expiresIn) {
+        if (expiresIn.endsWith("h")) {
+            long hours = Long.parseLong(expiresIn.replace("h", ""));
+            return LocalDateTime.now().plusHours(hours);
+        } else if (expiresIn.endsWith("d")) {
+            long days = Long.parseLong(expiresIn.replace("d", ""));
+            return LocalDateTime.now().plusDays(days);
+        }
+        return null; // Mặc định không hết hạn nếu định dạng sai
+    }
+    
+    public File validatePublicLink(String token, String password) throws Exception {
+        PublicLink link = publicLinkDAO.findByToken(token);
+        
+        if (link == null) {
+            throw new Exception("Link not found or has been deleted.");
+        }
+        
+        if (link.getExpiresAt() != null && LocalDateTime.now().isAfter(link.getExpiresAt())) {
+            throw new Exception("This link has expired.");
+        }
+        
+        if (link.getPasswordHash() != null) { // Nếu link yêu cầu mật khẩu
+            if (password == null || !PasswordUtils.checkPassword(password, link.getPasswordHash())) {
+                throw new Exception("Invalid password.");
+            }
+        }
+        
+        // Nếu mọi thứ hợp lệ, trả về thông tin file
+        return fileDAO.findById(link.getFileId());
     }
 }
