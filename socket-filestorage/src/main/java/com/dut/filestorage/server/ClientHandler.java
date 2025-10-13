@@ -1,23 +1,19 @@
 package com.dut.filestorage.server;
 
 import java.io.BufferedReader;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.sql.SQLException;
 import java.util.List;
 
-import com.dut.filestorage.model.dao.FileDAO;
 import com.dut.filestorage.model.dao.UserDAO;
 import com.dut.filestorage.model.entity.File;
+import com.dut.filestorage.model.entity.Group;
 import com.dut.filestorage.model.entity.User;
 import com.dut.filestorage.model.service.CollaborationService;
 import com.dut.filestorage.model.service.FileSystemService;
 import com.dut.filestorage.model.service.UserService;
-import com.dut.filestorage.utils.PasswordUtils;
 
 public class ClientHandler extends Thread {
     private Socket clientSocket;
@@ -27,7 +23,6 @@ public class ClientHandler extends Thread {
     // Các Service sẽ được sử dụng
     private UserService userService;
     private FileSystemService fileSystemService;
-    private FileDAO fileDAO;
     private CollaborationService collaborationService;
 
     // Trạng thái của client
@@ -35,20 +30,22 @@ public class ClientHandler extends Thread {
 
     public ClientHandler(Socket socket) {
         this.clientSocket = socket;
-        this.userService = new UserService();
-        this.fileSystemService = new FileSystemService();
-        this.fileDAO = new FileDAO();
-        this.collaborationService = new CollaborationService();
+        
+        // --- Dependency Injection Thủ công ---
+        // Khởi tạo các đối tượng DAO một lần duy nhất
+        UserDAO userDAO = new UserDAO();
+        
+        // Tiêm các DAO cần thiết vào các Service
+        this.userService = new UserService(userDAO);
+        this.collaborationService = new CollaborationService(userDAO);
+        this.fileSystemService = new FileSystemService(collaborationService);
     }
 
     @Override
     public void run() {
-       try (
-            PrintWriter out = new PrintWriter(clientSocket.getOutputStream(), true);
-            BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-        ) {
-            this.out = out; // Lưu lại để các hàm khác có thể dùng
-            this.in = in;
+        try {
+            out = new PrintWriter(clientSocket.getOutputStream(), true);
+            in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
             String inputLine;
             while ((inputLine = in.readLine()) != null) {
@@ -69,40 +66,17 @@ public class ClientHandler extends Thread {
         String command = parts[0].toUpperCase();
 
         switch (command) {
-            case "REGISTER":
-                handleRegister(parts);
-                break;
-            case "LOGIN":
-                handleLogin(parts);
-                break;
-            case "MKDIR":
-                handleMkdir(parts);
-                break;
-             case "LS":
-                if (parts.length > 1 && "--shared".equalsIgnoreCase(parts[1])) {
-                 handleLsShared();
-                } else {
-                    handleLs(parts);
-                }
-            break;
-            case "DOWNLOAD":
-                handleDownload(parts);
-                break;
-            case "DELETE":
-                handleDelete(parts);
-                break;
-            case "UPLOAD":
-                handleUpload(parts);
-                break;
-             case "SHARE":
-                handleShare(parts);
-                break;
-            case "GROUP_CREATE":
-                handleGroupCreate(parts);
-                break;
-            case "GROUP_INVITE":
-                handleGroupInvite(parts);
-            break;
+            case "REGISTER": handleRegister(parts); break;
+            case "LOGIN": handleLogin(parts); break;
+            case "LS": handleLs(parts); break;
+            case "UPLOAD": handleUpload(parts); break;
+            case "DOWNLOAD": handleDownload(parts); break;
+            case "DELETE": handleDelete(parts); break;
+            case "SHARE": handleShare(parts); break;
+            case "GROUP_CREATE": handleGroupCreate(parts); break;
+            case "GROUP_INVITE": handleGroupInvite(parts); break;
+            case "GROUP_KICK": handleGroupKick(parts); break;
+            case "GROUP_DELETE": handleGroupDelete(parts); break;
             default:
                 out.println("500 ERROR Unknown command: " + command);
         }
@@ -125,7 +99,7 @@ public class ClientHandler extends Thread {
 
     private void handleLogin(String[] parts) {
         if (loggedInUser != null) {
-            out.println("400 ERROR You are already logged in as " + loggedInUser.getUsername());
+            out.println("400 ERROR You are already logged in.");
             return;
         }
         if (parts.length < 3) {
@@ -134,47 +108,27 @@ public class ClientHandler extends Thread {
         }
         
         try {
-            UserDAO userDAO = new UserDAO(); // Tạm thời new ở đây, sau này có thể tối ưu
-            User user = userDAO.findByUsername(parts[1]);
-
-            if (user != null && PasswordUtils.checkPassword(parts[2], user.getPasswordHash())) {
+            User user = userService.loginUser(parts[1], parts[2]);
+            if (user != null) {
                 this.loggedInUser = user;
                 out.println("200 OK Login successful. Welcome " + user.getUsername());
             } else {
                 out.println("401 ERROR Invalid username or password.");
             }
-        } catch (SQLException e) {
-            out.println("500 ERROR Database error during login: " + e.getMessage());
-        }
-    }
-
-    private void handleMkdir(String[] parts) {
-        if (loggedInUser == null) {
-            out.println("401 ERROR You must be logged in to create a directory.");
-            return;
-        }
-        if (parts.length < 2) {
-            out.println("400 ERROR Bad syntax. Usage: MKDIR <folder_name>");
-            return;
-        }
-
-        try {
-            // Tạm thời, mặc định tạo thư mục ở gốc (parentFolderId = null)
-            fileSystemService.createDirectory(parts[1], loggedInUser.getId(), null);
-            out.println("200 OK Directory '" + parts[1] + "' created.");
         } catch (Exception e) {
-            out.println("400 ERROR " + e.getMessage());
+            out.println("500 ERROR Database error during login: " + e.getMessage());
         }
     }
 
     private void handleUpload(String[] parts) {
         if (loggedInUser == null) {
-            out.println("401 ERROR You must be logged in to upload a file.");
+            out.println("401 ERROR Not logged in.");
             return;
         }
-        // Cú pháp: UPLOAD <file_name> <file_size> <file_type>
+        
+        // Cú pháp nội bộ Client gửi: UPLOAD <name> <size> <type> [--group <id>]
         if (parts.length < 4) {
-            out.println("400 ERROR Bad syntax. Usage: UPLOAD <file_name> <file_size> <file_type>");
+            out.println("400 ERROR Bad syntax for UPLOAD command.");
             return;
         }
 
@@ -182,84 +136,101 @@ public class ClientHandler extends Thread {
             String fileName = parts[1];
             long fileSize = Long.parseLong(parts[2]);
             String fileType = parts[3];
+            Long groupId = null;
 
-            // 1. Báo cho client là server đã sẵn sàng nhận file
-            out.println("201 READY");
-
-            // 2. Nhận dữ liệu file thô từ client
-            // Lấy InputStream trực tiếp từ socket để đọc dữ liệu byte
-            InputStream socketInputStream = clientSocket.getInputStream();
-            
-            // Tạo một file tạm để lưu dữ liệu nhận được
-            java.io.File tempFile = java.io.File.createTempFile("upload-", ".tmp");
-            try (FileOutputStream fos = new FileOutputStream(tempFile)) {
-                byte[] buffer = new byte[4096];
-                int bytesRead;
-                long totalBytesRead = 0;
-                
-                // Vòng lặp đọc dữ liệu cho đến khi đủ số byte đã báo trước
-                while (totalBytesRead < fileSize && (bytesRead = socketInputStream.read(buffer, 0, (int) Math.min(buffer.length, fileSize - totalBytesRead))) != -1) {
-                    fos.write(buffer, 0, bytesRead);
-                    totalBytesRead += bytesRead;
+            // --- PHẦN SỬA LỖI QUAN TRỌNG NHẤT NẰM Ở ĐÂY ---
+            // Vòng lặp này sẽ quét qua các tham số để tìm "--group"
+            // thay vì giả định vị trí cố định của nó.
+            for (int i = 4; i < parts.length - 1; i++) {
+                if ("--group".equalsIgnoreCase(parts[i])) {
+                    try {
+                        groupId = Long.parseLong(parts[i + 1]);
+                    } catch (NumberFormatException e) {
+                        throw new Exception("Invalid group ID format provided with --group flag.");
+                    }
+                    break; // Tìm thấy thì dừng lại
                 }
             }
+            // --- KẾT THÚC SỬA LỖI ---
 
-            if (fileSize != tempFile.length()) {
-                 out.println("500 ERROR File size mismatch.");
-                 tempFile.delete();
-                 return;
-            }
+            // Bây giờ, biến `groupId` đã có giá trị đúng (hoặc vẫn là null nếu không có --group)
             
-            // 3. Gọi Service để xử lý file tạm này
-            // Tạo một InputStream mới từ file tạm để đưa cho service
-            try (InputStream tempFileInputStream = new java.io.FileInputStream(tempFile)) {
-                fileSystemService.storeFile(tempFileInputStream, fileName, fileSize, fileType, loggedInUser.getId(), null);
-                // 4. Báo thành công cho client
-                out.println("202 OK File uploaded successfully.");
-            } finally {
-                // Xóa file tạm đi sau khi đã xử lý xong
-                tempFile.delete();
-            }
+            fileSystemService.checkUploadPermissions(loggedInUser.getId(), groupId);
             
+            out.println("201 READY");
+            
+            fileSystemService.receiveAndStoreFile(
+                clientSocket.getInputStream(),
+                fileName, fileSize, fileType,
+                loggedInUser.getId(), groupId
+            );
+            
+            out.println("202 OK File uploaded successfully.");
+
         } catch (NumberFormatException e) {
-            out.println("400 ERROR Invalid file size.");
+            out.println("400 ERROR Invalid number format in command.");
         } catch (Exception e) {
             out.println("500 ERROR " + e.getMessage());
-            e.printStackTrace(); // In lỗi ra console server để debug
+            try { clientSocket.close(); } catch (IOException ioException) {}
+        }
+    }
+
+    private void handleLs(String[] parts) {
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); out.println("END_OF_LIST"); return; }
+
+        System.out.println("DEBUG: handleLs called with " + String.join(" ", parts)); // LOG 1
+
+        try {
+            if (parts.length > 1) {
+                String flagOrId = parts[1];
+                
+                if ("--shared".equalsIgnoreCase(flagOrId)) {
+                    System.out.println("DEBUG: Entering --shared branch."); // LOG 2
+                    List<File> files = collaborationService.listSharedFiles(loggedInUser.getId());
+                    printFileList(files, "Shared With Me");
+                } else if ("--groups".equalsIgnoreCase(flagOrId)) {
+                    System.out.println("DEBUG: Entering --groups branch."); // LOG 3
+                    List<Group> groups = collaborationService.listUserGroups(loggedInUser.getId());
+                    printGroupList(groups);
+                } else if ("--members".equalsIgnoreCase(flagOrId)) {
+                     System.out.println("DEBUG: Entering --members branch."); // LOG 4
+                    if (parts.length < 3) throw new Exception("Usage: LS --members <group_id>");
+                    long groupId = Long.parseLong(parts[2]);
+                    List<User> members = collaborationService.listGroupMembers(groupId, loggedInUser.getId());
+                    printUserList(members);
+                } else {
+                      System.out.println("DEBUG: Entering GROUP FILES branch for ID: " + flagOrId); // LOG 5
+                    // Mặc định là liệt kê file trong group, ví dụ: LS 1
+                    // đảm bảo đây là một con số
+                    long groupId = Long.parseLong(flagOrId);
+                    List<File> files = fileSystemService.listFilesInGroup(groupId, loggedInUser.getId());
+                    System.out.println("DEBUG: Found " + files.size() + " files in group " + groupId); // LOG 6
+                    printFileList(files, "Files in Group " + groupId);
+                }
+            } else {
+                System.out.println("DEBUG: Entering PERSONAL FILES branch."); // LOG 7
+                // Liệt kê file cá nhân
+                List<File> files = fileSystemService.listFiles(loggedInUser.getId());
+                printFileList(files, "My Files");
+            }
+        } catch (NumberFormatException e) {
+            out.println("400 ERROR Invalid ID format. Expected a number for group ID.");
+        } catch (Exception e) {
+              System.err.println("DEBUG: EXCEPTION in handleLs: " + e.getMessage()); // LOG 8
+            out.println("500 ERROR " + e.getMessage());
+        } finally {
+            out.println("END_OF_LIST");
         }
     }
     
-    private void handleLs(String[] parts) {
-        if (loggedInUser == null) { /*error */ return; }
-        try {
-            List<File> files = fileSystemService.listFiles(loggedInUser.getId());
-            if (files.isEmpty()) {
-                out.println("200 OK Directory is empty.");
-                out.println("END_OF_LIST"); // Vẫn gửi tín hiệu kết thúc
-            } else {
-                out.println("200 OK --- File List ---");
-                for (File file : files) {
-                    out.println(String.format("ID: %d | Name: %s | Size: %d bytes",
-                            file.getId(), file.getFileName(), file.getFileSize()));
-                }
-                out.println("END_OF_LIST"); // Gửi tín hiệu báo hết danh sách
-            }
-        } catch (Exception e) {
-            out.println("500 ERROR " + e.getMessage());
-        }
-    }
-
     private void handleDelete(String[] parts) {
         if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
         if (parts.length < 2) { out.println("400 ERROR Usage: DELETE <file_id>"); return; }
         
         try {
             long fileId = Long.parseLong(parts[1]);
-            // Gọi hàm service đã được nâng cấp
-            String resultMessage = fileSystemService.deleteOrRemoveShare(fileId, loggedInUser.getId());
-            // In ra thông báo mà service trả về
+            String resultMessage = fileSystemService.deleteFile(fileId, loggedInUser.getId());
             out.println("200 OK " + resultMessage);
-
         } catch (NumberFormatException e) {
             out.println("400 ERROR Invalid file ID.");
         } catch (Exception e) {
@@ -268,52 +239,31 @@ public class ClientHandler extends Thread {
     }
 
     private void handleDownload(String[] parts) {
-        if (loggedInUser == null) {
-            out.println("401 ERROR Not logged in.");
-            return;
-        }
-        // Cú pháp mới mà server mong đợi: DOWNLOAD <file_id>
-        if (parts.length < 2) {
-            out.println("400 ERROR Usage: DOWNLOAD <file_id>");
-            return;
-        }
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
+        if (parts.length < 2) { out.println("400 ERROR Usage: DOWNLOAD <file_id>"); return; }
 
         try {
             long fileId = Long.parseLong(parts[1]);
+            File fileToDownload = fileSystemService.getFileForDownload(fileId, loggedInUser.getId());
             
-            File fileToDownload = fileDAO.findById(fileId); // Cần có UserDAO và FileDAO
-            
-            if (fileToDownload == null) {
-                out.println("404 ERROR File not found.");
-                return;
-            }
-
-            // 1. Gửi thông tin file về cho client trước
             out.println("201 INFO " + fileToDownload.getFileName() + " " + fileToDownload.getFileSize());
             
-            // 2. Chờ client xác nhận sẵn sàng
             String clientResponse = in.readLine();
             if (clientResponse != null && clientResponse.equals("CLIENT_READY")) {
-                // 3. Bắt đầu gửi dữ liệu file
-                fileSystemService.downloadFile(fileId, loggedInUser.getId(), clientSocket.getOutputStream());
+                fileSystemService.streamFileToOutput(fileId, clientSocket.getOutputStream());
             } else {
-                // Client đã hủy, không làm gì cả
                 System.out.println("Client canceled download for file ID: " + fileId);
             }
         } catch (NumberFormatException e) {
             out.println("400 ERROR Invalid file ID format.");
         } catch (Exception e) {
-            out.println("500 ERROR " + e.getMessage());
-            e.printStackTrace();
+            out.println("400 ERROR " + e.getMessage());
         }
     }
+    
     private void handleShare(String[] parts) {
         if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
-        // Cú pháp: SHARE <file_id> <target_username>
-        if (parts.length < 3) {
-            out.println("400 ERROR Usage: SHARE <file_id> <target_username>");
-            return;
-        }
+        if (parts.length < 3) { out.println("400 ERROR Usage: SHARE <file_id> <target_username>"); return; }
 
         try {
             long fileId = Long.parseLong(parts[1]);
@@ -329,11 +279,7 @@ public class ClientHandler extends Thread {
 
     private void handleGroupCreate(String[] parts) {
         if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
-        // Cú pháp: GROUP_CREATE <group_name>
-        if (parts.length < 2) {
-            out.println("400 ERROR Usage: GROUP_CREATE <group_name>");
-            return;
-        }
+        if (parts.length < 2) { out.println("400 ERROR Usage: GROUP_CREATE <group_name>"); return; }
         
         String groupName = parts[1];
         try {
@@ -343,36 +289,10 @@ public class ClientHandler extends Thread {
             out.println("400 ERROR " + e.getMessage());
         }
     }
-    private void handleLsShared() {
-    if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
-    
-    try {
-        List<File> files = collaborationService.listSharedFiles(loggedInUser.getId());
-        if (files.isEmpty()) {
-            out.println("200 OK No files have been shared with you.");
-        } else {
-            out.println("200 OK --- Shared Files ---");
-            for (File file : files) {
-                 out.println(String.format("ID: %d | Name: %s | Size: %d bytes",
-                        file.getId(), 
-                        file.getFileName(), 
-                        file.getFileSize()));
-            }
-        }
-    } catch (Exception e) {
-        out.println("500 ERROR " + e.getMessage());
-    } finally {
-        out.println("END_OF_LIST");
-    }
-}
 
     private void handleGroupInvite(String[] parts) {
         if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
-        // Cú pháp: GROUP_INVITE <group_id> <target_username>
-        if (parts.length < 3) {
-            out.println("400 ERROR Usage: GROUP_INVITE <group_id> <target_username>");
-            return;
-        }
+        if (parts.length < 3) { out.println("400 ERROR Usage: GROUP_INVITE <group_id> <target_username>"); return; }
         
         try {
             long groupId = Long.parseLong(parts[1]);
@@ -385,5 +305,73 @@ public class ClientHandler extends Thread {
             out.println("400 ERROR " + e.getMessage());
         }
     }
-        
+
+    private void handleGroupKick(String[] parts) {
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
+        if (parts.length < 3) { out.println("400 ERROR Usage: GROUP_KICK <group_id> <username_to_kick>"); return; }
+        try {
+            long groupId = Long.parseLong(parts[1]);
+            String targetUsername = parts[2];
+            collaborationService.kickUserFromGroup(groupId, loggedInUser.getId(), targetUsername);
+            out.println("200 OK " + targetUsername + " has been kicked from the group.");
+        } catch (NumberFormatException e) {
+            out.println("400 ERROR Invalid group ID.");
+        } catch (Exception e) {
+            out.println("400 ERROR " + e.getMessage());
+        }
+    }
+
+    private void handleGroupDelete(String[] parts) {
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
+        if (parts.length < 2) { out.println("400 ERROR Usage: GROUP_DELETE <group_id>"); return; }
+        try {
+            long groupId = Long.parseLong(parts[1]);
+            collaborationService.deleteGroup(groupId, loggedInUser.getId());
+            out.println("200 OK Group deleted successfully.");
+        } catch (NumberFormatException e) {
+            out.println("400 ERROR Invalid group ID.");
+        } catch (Exception e) {
+            out.println("400 ERROR " + e.getMessage());
+        }
+    } 
+
+    // --- CÁC HÀM PHỤ ĐỂ IN DANH SÁCH ---
+    private void printFileList(List<File> files, String header) {
+        if (files.isEmpty()) {
+            out.println("200 OK No files found.");
+        } else {
+            out.println("200 OK --- " + header + " ---");
+            for (File file : files) {
+                String uploadDateStr = (file.getUploadDate() != null) ? file.getUploadDate().toString() : "N/A";
+            
+                out.println(String.format("ID: %-5d | Name: %-30s | Size: %-10d | Last Modified: %s",
+                        file.getId(),
+                        file.getFileName(),
+                        file.getFileSize(),
+                        uploadDateStr));
+            }
+        }
+    }
+
+    private void printGroupList(List<Group> groups) {
+        if (groups.isEmpty()) {
+            out.println("200 OK You are not a member of any group.");
+        } else {
+            out.println("200 OK --- My Groups ---");
+            for (Group group : groups) {
+                out.println(String.format("ID: %-5d | Name: %s", group.getGroupId(), group.getGroupName()));
+            }
+        }
+    }
+
+    private void printUserList(List<User> users) {
+        if (users.isEmpty()) {
+            out.println("200 OK No members found.");
+        } else {
+            out.println("200 OK --- Group Members ---");
+            for (User user : users) {
+                out.println(String.format("ID: %-5d | Username: %s", user.getId(), user.getUsername()));
+            }
+        }
+    }
 }

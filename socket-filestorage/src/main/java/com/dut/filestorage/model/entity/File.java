@@ -10,7 +10,7 @@ public class File {
     private String fileType;
     private LocalDateTime uploadDate;
     private Long ownerId;
-    private Long folderId;
+    private Long groupId;
 
     public Long getId() {
         return id;
@@ -68,12 +68,11 @@ public class File {
     public void setOwnerId(Long ownerId) {
         this.ownerId = ownerId;
     }
-
-    public Long getFolderId() {
-        return folderId;
+    public Long getGroupId() {
+        return groupId;
+    }
+    public void setGroupId(Long groupId) {
+        this.groupId = groupId;
     }
 
-    public void setFolderId(Long folderId) {
-        this.folderId = folderId;
-    }
 }
