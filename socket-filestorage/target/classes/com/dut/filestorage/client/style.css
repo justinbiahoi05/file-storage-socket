@@ -1,0 +1,39 @@
+/* --- Homepage Styling --- */
+
+/* --- Style cho các nút điều hướng thông thường --- */
+/* Áp dụng lớp "nav-button" cho các nút Features, Use cases, About us, Log in */
+.nav-button {
+    -fx-background-color: transparent; /* Nền trong suốt mặc định */
+    -fx-text-fill: white;
+    -fx-background-radius: 8;    /* Bo tròn góc */
+    -fx-cursor: hand;            /* Con trỏ hình bàn tay */
+}
+
+/* Hiệu ứng khi di chuột vào nút nav-button */
+.nav-button:hover {
+    -fx-text-fill: #c9c7c7; /* Chuyển sang màu xám đậm hơn */
+}
+
+
+/* --- Style cho nút nổi bật --- */
+/* Áp dụng lớp "signup-button" cho nút Sign up */
+.signup-button {
+    -fx-background-color: transparent;
+    -fx-text-fill: white;
+    -fx-background-radius: 8;
+    -fx-cursor: hand;
+}
+
+/* Hiệu ứng khi di chuột vào nút signup-button */
+.signup-button:hover {
+    -fx-background-color: #545353; /* Chuyển sang màu trắng */
+}
+
+.logo-button {
+    -fx-cursor: hand;
+    -fx-opacity: 0.9; /* Hơi mờ một chút khi bình thường */
+}
+
+.logo-button:hover {
+    -fx-opacity: 1.0; /* Rõ nét hoàn toàn khi di chuột vào */
+}

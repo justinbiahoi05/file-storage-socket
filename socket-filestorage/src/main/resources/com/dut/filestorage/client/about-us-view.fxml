@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Font?>
+
+<ScrollPane fitToWidth="true" prefViewportHeight="461.0" prefViewportWidth="844.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.HomepageController">
+   <content>
+      <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="2302.0" prefWidth="844.0" style="-fx-background-color: black;" stylesheets="@style.css">
+         <children>
+            <ImageView fitHeight="475.0" fitWidth="866.0" pickOnBounds="true" preserveRatio="true">
+               <image>
+                  <Image url="@images/homepage.jpg" />
+               </image>
+            </ImageView>
+            <Pane layoutX="437.0" layoutY="17.0" prefHeight="35.0" prefWidth="243.0" style="-fx-background-color: Black; -fx-background-radius: 8;">
+               <children>
+                  <Button fx:id="featuresButton" layoutX="14.0" layoutY="5.0" mnemonicParsing="false" onAction="#onFeaturesClick" styleClass="nav-button" stylesheets="@style.css" text="Features" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="useCasesButton" layoutX="90.0" layoutY="5.0" mnemonicParsing="false" onAction="#onUseCasesClick" styleClass="nav-button" stylesheets="@style.css" text="Use cases" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="aboutUsButton" layoutX="169.0" layoutY="5.0" mnemonicParsing="false" onAction="#onAboutUsClick" styleClass="nav-button" stylesheets="@style.css" text="About us" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+               </children>
+            </Pane>
+            <Pane layoutX="687.0" layoutY="17.0" prefHeight="35.0" prefWidth="143.0" style="-fx-background-color: Black; -fx-background-radius: 8;">
+               <children>
+                  <Pane layoutX="69.0" layoutY="5.0" opacity="0.53" prefHeight="25.0" prefWidth="64.0" style="-fx-background-color: gray; -fx-background-radius: 8;" />
+                  <Button fx:id="loginButton" layoutX="14.0" layoutY="5.0" mnemonicParsing="false" onAction="#onLoginClick" styleClass="nav-button" stylesheets="@style.css" text="Log in" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="signUpButton" layoutX="69.0" layoutY="4.0" mnemonicParsing="false" onAction="#onSignUpClick" prefHeight="25.0" prefWidth="64.0" styleClass="signup-button" stylesheets="@style.css" text="Sign up" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+               </children>
+            </Pane>
+            <Label layoutX="231.0" layoutY="116.0" prefHeight="242.0" prefWidth="412.0" text="Hey there, this is something about us" textAlignment="CENTER" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font name="Times New Roman Bold" size="48.0" />
+               </font>
+            </Label>
+            <Button fx:id="logoButton" contentDisplay="GRAPHIC_ONLY" layoutX="8.0" layoutY="3.0" mnemonicParsing="false" onAction="#onLogoClick" prefHeight="40.0" prefWidth="51.0" style="-fx-background-color: transparent; box-border-color: transparent;" styleClass="logo-button" stylesheets="@style.css">
+               <graphic>
+                  <ImageView fitHeight="25.0" fitWidth="51.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/logo.png" />
+                     </image>
+                  </ImageView>
+               </graphic>
+            </Button>
+            <Separator layoutX="43.0" layoutY="2260.0" prefHeight="0.0" prefWidth="766.0" />
+            <Label layoutX="748.0" layoutY="2269.0" text="\@2025 SnS" textFill="WHITE" />
+            <Pane layoutX="32.0" layoutY="618.0" prefHeight="415.0" prefWidth="779.0" style="-fx-background-color: white; -fx-background-radius: 20;">
+               <children>
+                  <Label layoutX="398.0" layoutY="104.0" prefHeight="241.0" prefWidth="319.0" text="SnS was born from a passion for foundational technologies and a desire to build genuinely useful products. We are Dang Hoang Huy and Nguyen Van Duong, 3-year students of the Faculty of Information Technology at Da Nang University of Science and Technology. This project was more than just an assignment... it was a challenge: could we build a complete file-sharing service from scratch, using only the most fundamental building blocks—Java Sockets and perseverance? SnS is a testament to our belief that a deep understanding of core technology is the key to creating truly powerful solutions." wrapText="true">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="398.0" layoutY="58.0" prefHeight="46.0" prefWidth="158.0" text="Our Story" wrapText="true">
+                     <font>
+                        <Font name="Times New Roman Bold" size="36.0" />
+                     </font>
+                  </Label>
+                  <ImageView fitHeight="279.0" fitWidth="275.0" layoutX="73.0" layoutY="70.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/our_story.png" />
+                     </image>
+                  </ImageView>
+               </children>
+            </Pane>
+            <Pane layoutX="38.0" layoutY="1247.0" prefHeight="378.0" prefWidth="767.0" style="-fx-background-color: gray; -fx-background-radius: 20;">
+               <children>
+                  <Label layoutX="405.0" layoutY="161.0" text="Name: Dang Hoang Huy" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <ImageView fitHeight="269.0" fitWidth="299.0" layoutX="73.0" layoutY="55.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/huy.png" />
+                     </image>
+                  </ImageView>
+                  <Label layoutX="399.0" layoutY="110.0" text="About Huy," textFill="WHITE">
+                     <font>
+                        <Font name="Times New Roman Bold" size="36.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="405.0" layoutY="180.0" text="Class: 23T_DT4" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="405.0" layoutY="218.0" text="Email: danghoangdanghoang2018@gmail.com" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="402.0" layoutY="237.0" text="Github: justinbiahoi05" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="405.0" layoutY="199.0" text="Contact: 0905640584" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+               </children>
+            </Pane>
+            <Label layoutX="343.0" layoutY="532.0" prefHeight="46.0" prefWidth="158.0" text="About Us" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font name="Times New Roman Bold" size="36.0" />
+               </font>
+            </Label>
+            <Label layoutX="275.0" layoutY="1151.0" prefHeight="96.0" prefWidth="323.0" text="Meet the Developers" textAlignment="CENTER" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font name="Times New Roman Bold" size="36.0" />
+               </font>
+            </Label>
+            <Pane layoutX="42.0" layoutY="1672.0" prefHeight="378.0" prefWidth="767.0" style="-fx-background-color: gray; -fx-background-radius: 20;">
+               <children>
+                  <Label layoutX="68.0" layoutY="161.0" text="Name: Nguyen Van Duong" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="66.0" layoutY="106.0" text="About Duong," textFill="WHITE">
+                     <font>
+                        <Font name="Times New Roman Bold" size="36.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="69.0" layoutY="180.0" text="Class: 23T_DT4" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="66.0" layoutY="218.0" text="Email: danghoangdanghoang2018@gmail.com" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="65.0" layoutY="237.0" text="Github: justinbiahoi05" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <Label layoutX="68.0" layoutY="199.0" text="Contact: 0905640584" textFill="WHITE">
+                     <font>
+                        <Font size="13.0" />
+                     </font>
+                  </Label>
+                  <ImageView fitHeight="365.0" fitWidth="284.0" layoutX="418.0" layoutY="47.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/duong.png" />
+                     </image>
+                  </ImageView>
+               </children>
+            </Pane>
+         </children>
+      </AnchorPane>
+   </content>
+</ScrollPane>

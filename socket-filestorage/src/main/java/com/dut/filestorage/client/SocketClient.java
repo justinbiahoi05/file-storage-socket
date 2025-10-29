@@ -10,12 +10,14 @@ import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.dut.filestorage.model.entity.File;
+import com.dut.filestorage.model.entity.FileVersion;
 import com.dut.filestorage.model.entity.Group;
 import com.dut.filestorage.model.entity.User;
 
@@ -57,14 +59,25 @@ public class SocketClient {
     // --- CÁC HÀM LOGIC CHO GIAO DIỆN ---
 
     // === Module User ===
-    public boolean login(String username, String password) {
+    public User login(String username, String password) {
         try {
-            if (socket == null || socket.isClosed()) return false; // Kiểm tra kết nối trước khi gửi
+            if (socket == null || socket.isClosed()) {
+                return null;
+            }
+            
             String response = sendSingleLineCommand("LOGIN " + username + " " + password);
-            return response != null && response.startsWith("200 OK");
+            
+            if (response != null && response.startsWith("200 OK")) {
+                // Đăng nhập thành công, tạo một đối tượng User để trả về
+                User user = new User();
+                user.setUsername(username);
+                return user;
+            }
+            // Nếu không thành công, trả về null
+            return null;
         } catch (IOException e) {
             System.err.println("Login failed due to network error: " + e.getMessage());
-            return false; // Trả về false nếu có lỗi mạng
+            return null; // Trả về null nếu có lỗi mạng
         }
     }
 
@@ -102,12 +115,13 @@ public class SocketClient {
     }
 
     // === Module Upload / Download ===
-    public String uploadFile(java.io.File localFile, Long groupId) throws IOException {
+    public String uploadFile(java.io.File localFile, Long groupId, int baseVersion, String notes) throws IOException {
         String fileName = localFile.getName();
         long fileSize = localFile.length();
         String fileType = "application/octet-stream";
-
-        String metadataCommand = "UPLOAD " + fileName + " " + fileSize + " " + fileType;
+        String notesToSend = (notes == null || notes.trim().isEmpty()) ? "null" : "\"" + notes + "\"";
+        String metadataCommand = "UPLOAD " + fileName + " " + fileSize + " " + fileType + " " + baseVersion + " " + notesToSend;
+   
         if (groupId != null) {
             metadataCommand += " --group " + groupId;
         }
@@ -210,22 +224,19 @@ public class SocketClient {
                     String line = responseLines.get(i);
                     String[] parts = line.split("\\|");
                     
-                    if (parts.length >= 2) { // Chỉ cần ít nhất 2 phần
+                    // Giờ chuỗi có 3 phần
+                    if (parts.length >= 3) {
                         long id = Long.parseLong(parts[0].split(":")[1].trim());
                         String username = parts[1].split(":")[1].trim();
+                        String role = parts[2].split(":")[1].trim(); // Lấy role
                         
                         User user = new User();
                         user.setId(id);
                         user.setUsername(username);
+                        user.setRoleInGroup(role); // Gán role
                         
-                        // Kiểm tra xem có phần email không trước khi đọc
-                        if (parts.length > 2) {
-                            String email = parts[2].split(":")[1].trim();
-                            user.setEmail(email);
-                        }
                         users.add(user);
                     }
-                    
                 } catch (Exception e) {
                     System.err.println("Could not parse user list line: " + responseLines.get(i));
                 }
@@ -234,6 +245,17 @@ public class SocketClient {
         return users;
     }
     
+    public List<File> searchMyFiles(String keyword) throws IOException {
+        return parseFileList(sendMultiLineCommand("SEARCH --my-files " + keyword));
+    }
+
+    public List<File> searchSharedFiles(String keyword) throws IOException {
+        return parseFileList(sendMultiLineCommand("SEARCH --shared " + keyword));
+    }
+
+    public List<File> searchGroupFiles(long groupId, String keyword) throws IOException {
+        return parseFileList(sendMultiLineCommand("SEARCH --group " + groupId + " " + keyword));
+    }
     public String createGroup(String groupName) throws IOException {
         return sendSingleLineCommand("GROUP_CREATE " + groupName);
     }
@@ -299,6 +321,71 @@ public class SocketClient {
         }
     }
 
+    public List<FileVersion> getVersionHistory(long fileId) throws IOException {
+        List<String> responseLines = sendMultiLineCommand("VERSIONS " + fileId);
+        List<FileVersion> versions = new ArrayList<>();
+        
+        if (responseLines.isEmpty() || !responseLines.get(0).startsWith("200 OK")) {
+            if (!responseLines.isEmpty()) throw new IOException(responseLines.get(0));
+            return versions;
+        }
+        
+        // Regex mới để hiểu chuỗi 4 phần (sau khi đã tách versionId)
+        String regex = "v(\\d+)\\s*\\|\\s*Uploader:\\s*(.*?)\\s*\\|\\s*Date:\\s*(.*?)\\s*\\|\\s*Notes:\\s*(.*)";
+        Pattern pattern = Pattern.compile(regex);
+
+        for (int i = 1; i < responseLines.size(); i++) {
+            String line = responseLines.get(i);
+            
+            String[] idAndContent = line.split("!", 2);
+            if (idAndContent.length < 2) continue; // Bỏ qua dòng lỗi
+
+            long versionId = Long.parseLong(idAndContent[0]);
+            String content = idAndContent[1];
+            
+            Matcher matcher = pattern.matcher(content);
+
+            if (matcher.find()) {
+                try {
+                    FileVersion version = new FileVersion();
+                    
+                    version.setVersionId(versionId); // Gán versionId
+                    version.setVersionNumber(Integer.parseInt(matcher.group(1).trim()));
+                    version.setUploaderName(matcher.group(2).trim());
+                    
+                    String dateStr = matcher.group(3).trim();
+                    String notesStr = matcher.group(4).trim();
+                    
+                    // Gộp Date và Notes để hiển thị trong 1 cột cho tiện
+                    version.setNotes(dateStr + " | " + notesStr); 
+                    
+                    versions.add(version);
+                } catch (Exception e) {
+                    System.err.println("Could not parse version history line content: '" + content + "'");
+                }
+            } else {
+                System.err.println("Could not parse version history line (no regex match): '" + line + "'");
+            }
+        }
+        return versions;
+    }
+
+    public String restoreVersion(long versionId) throws IOException {
+        return sendSingleLineCommand("RESTORE " + versionId);
+    }
+
+    public int findLatestVersion(String fileName, Long groupId) throws IOException {
+        String command = "GET_VERSION " + fileName;
+        if (groupId != null) {
+            command += " --group " + groupId;
+        }
+        String response = sendSingleLineCommand(command);
+        if (response != null && response.startsWith("200 OK")) {
+            return Integer.parseInt(response.split(" ")[2]);
+        }
+        return 0; // Trả về 0 nếu có lỗi
+    }
+
     // --- HÀM TIỆN ÍCH VÀ DỌN DẸP ---
 
     private List<File> parseFileList(List<String> responseLines) {
@@ -306,48 +393,42 @@ public class SocketClient {
         if (responseLines.isEmpty() || !responseLines.get(0).startsWith("200 OK")) {
             return files;
         }
-
-        // 1. Định nghĩa một "khuôn mẫu" (Pattern) để tìm kiếm thông tin
-        // Pattern này sẽ tìm các nhóm dữ liệu được đánh dấu bằng dấu ngoặc đơn ()
-        String regex = "ID:\\s*(\\d+)\\s*\\|\\s*Name:\\s*(.*?)\\s*\\|\\s*Size:\\s*(\\d+)\\s*\\|\\s*Last Modified:\\s*(.*)";
+        
+        // Regex vẫn giữ nguyên
+        String regex = "ID:\\s*(\\d+)\\s*\\|\\s*Name:\\s*(.*?)\\s*\\|\\s*Size:\\s*(\\d+)\\s*\\|\\s*Owner:\\s*(.*?)\\s*\\|\\s*Last Modified:\\s*(.*?)\\s*\\|\\s*Version:\\s*(\\d+)";
         Pattern pattern = Pattern.compile(regex);
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
         for (int i = 1; i < responseLines.size(); i++) {
             String line = responseLines.get(i);
-            // 2. Áp dụng khuôn mẫu vào từng dòng
             Matcher matcher = pattern.matcher(line);
 
-            // 3. Nếu tìm thấy khớp
             if (matcher.find()) {
                 try {
-                    // Lấy ra các nhóm dữ liệu đã tìm được
-                    long id = Long.parseLong(matcher.group(1)); // Nhóm 1: (\d+) - các chữ số của ID
-                    String name = matcher.group(2).trim();      // Nhóm 2: (.*?) - bất kỳ ký tự nào của Name
-                    long size = Long.parseLong(matcher.group(3)); // Nhóm 3: (\d+) - các chữ số của Size
-                    String dateStr = matcher.group(4).trim();   // Nhóm 4: (.*) - phần còn lại của Date
+                    long id = Long.parseLong(matcher.group(1));
+                    String name = matcher.group(2).trim();
+                    long size = Long.parseLong(matcher.group(3));
+                    String ownerName = matcher.group(4).trim();
+                    String dateStr = matcher.group(5).trim();
+                    int version = Integer.parseInt(matcher.group(6));
 
                     File file = new File();
                     file.setId(id);
                     file.setFileName(name);
                     file.setFileSize(size);
-
+                    file.setOwnerName(ownerName);
+                    file.setCurrentVersion(version);
+                    
                     if (!"N/A".equals(dateStr)) {
-                        // Cắt bỏ phần nano giây nếu có (để parse an toàn hơn)
-                        if (dateStr.contains(".")) {
-                            dateStr = dateStr.substring(0, dateStr.indexOf('.'));
-                        }
-                        file.setUploadDate(LocalDateTime.parse(dateStr));
+                        file.setUploadDate(LocalDateTime.parse(dateStr, formatter)); 
                     }
                     files.add(file);
-                    
                 } catch (Exception e) {
-                    // Nếu lỗi xảy ra ở đây, thường là do định dạng số hoặc ngày tháng sai
                     System.err.println("Error parsing matched line: '" + line + "'");
                     e.printStackTrace();
                 }
             } else {
-                // Nếu không khớp với khuôn mẫu, in ra để debug
-                System.err.println("Could not parse file list line: '" + line + "'");
+                System.err.println("Could not parse file list line (no regex match): '" + line + "'");
             }
         }
         return files;

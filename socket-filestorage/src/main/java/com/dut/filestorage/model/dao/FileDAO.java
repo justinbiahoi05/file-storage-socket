@@ -39,7 +39,7 @@ public class FileDAO {
             try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
                     file.setId(generatedKeys.getLong(1));
-                    return file; // Trả về đối tượng File đã có ID
+                    return file;
                 } else {
                     throw new SQLException("Creating file failed, no ID obtained.");
                 }
@@ -48,7 +48,9 @@ public class FileDAO {
     }
     
     public File findById(long fileId) throws SQLException {
-        String sql = "SELECT * FROM files WHERE file_id = ?";
+        String sql = "SELECT f.*, u.username as owner_name, " +
+                     "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                     "FROM files f JOIN users u ON f.owner_id = u.user_id WHERE f.file_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, fileId);
@@ -63,7 +65,10 @@ public class FileDAO {
 
     public List<File> findByOwnerId(long ownerId) throws SQLException {
         List<File> files = new ArrayList<>();
-        String sql = "SELECT * FROM files WHERE owner_id = ? AND group_id IS NULL";
+        String sql = "SELECT f.*, u.username as owner_name, " +
+                     "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                     "FROM files f JOIN users u ON f.owner_id = u.user_id " +
+                     "WHERE f.owner_id = ? AND f.group_id IS NULL";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, ownerId);
@@ -87,8 +92,10 @@ public class FileDAO {
     
     public List<File> findSharedWithUser(long userId) throws SQLException {
         List<File> files = new ArrayList<>();
-        String sql = "SELECT f.* FROM files f " +
-                     "INNER JOIN shares s ON f.file_id = s.file_id " + 
+        String sql = "SELECT f.*, u.username as owner_name, " +
+                     "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                     "FROM files f INNER JOIN shares s ON f.file_id = s.file_id " +
+                     "INNER JOIN users u ON f.owner_id = u.user_id " +
                      "WHERE s.shared_with_user_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -104,23 +111,78 @@ public class FileDAO {
     
     public List<File> findByGroupId(long groupId) throws SQLException {
         List<File> files = new ArrayList<>();
-        String sql = "SELECT * FROM files WHERE group_id = ?";
-        
+        String sql = "SELECT f.*, u.username as owner_name, " +
+                     "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                     "FROM files f JOIN users u ON f.owner_id = u.user_id " +
+                     "WHERE f.group_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
-            PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, groupId);
-            
             try (ResultSet rs = pstmt.executeQuery()) {
-                // Lặp qua kết quả từ CSDL và ánh xạ vào đối tượng File
                 while (rs.next()) {
                     files.add(mapRowToFile(rs));
                 }
             }
         }
-        
-        return files; // Trả về danh sách đã được điền đầy đủ
+        return files;
     }
+
+    public List<File> searchInMyFiles(String keyword, long userId) throws SQLException {
+        List<File> files = new ArrayList<>();
+        String sql = "SELECT f.*, u.username as owner_name FROM files f " +
+                     "JOIN users u ON f.owner_id = u.user_id " +
+                     "WHERE f.owner_id = ? AND f.group_id IS NULL AND f.file_name LIKE ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, "%" + keyword + "%");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    files.add(mapRowToFile(rs));
+                }
+            }
+        }
+        return files;
+    }
+
+    public List<File> searchInSharedFiles(String keyword, long userId) throws SQLException {
+        List<File> files = new ArrayList<>();
+        String sql = "SELECT f.*, u.username as owner_name FROM files f " +
+                     "JOIN users u ON f.owner_id = u.user_id " +
+                     "JOIN shares s ON f.file_id = s.file_id " +
+                     "WHERE s.shared_with_user_id = ? AND f.file_name LIKE ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, userId);
+            pstmt.setString(2, "%" + keyword + "%");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    files.add(mapRowToFile(rs));
+                }
+            }
+        }
+        return files;
+    }
+
+    public List<File> searchInGroupFiles(long groupId, String keyword) throws SQLException {
+        List<File> files = new ArrayList<>();
+        String sql = "SELECT f.*, u.username as owner_name FROM files f " +
+                     "JOIN users u ON f.owner_id = u.user_id " +
+                     "WHERE f.group_id = ? AND f.file_name LIKE ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, groupId);
+            pstmt.setString(2, "%" + keyword + "%");
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    files.add(mapRowToFile(rs));
+                }
+            }
+        }
+        return files;
+    }
+    
+    // --- HÀM MAPPING ---
 
     private File mapRowToFile(ResultSet rs) throws SQLException {
         File file = new File();
@@ -133,12 +195,67 @@ public class FileDAO {
             file.setUploadDate(rs.getTimestamp("upload_date").toLocalDateTime());
         }
         file.setOwnerId(rs.getLong("owner_id"));
+        file.setCurrentVersion(rs.getInt("current_version"));
         
         long groupId = rs.getLong("group_id");
         if (!rs.wasNull()) {
             file.setGroupId(groupId);
         }
         
+        file.setOwnerName(rs.getString("owner_name"));
+        
         return file;
+    }
+
+    public File findByNameAndLocation(String fileName, Long uploaderId, Long groupId) throws SQLException {
+        String sql;
+        PreparedStatement pstmt = null;
+        Connection conn = DatabaseManager.getConnection();
+        
+        try {
+            if (groupId != null) {
+                sql = "SELECT * FROM files WHERE file_name = ? AND group_id = ?";
+                pstmt = conn.prepareStatement(sql);
+                pstmt.setString(1, fileName);
+                pstmt.setLong(2, groupId);
+            } else {
+                sql = "SELECT * FROM files WHERE file_name = ? AND owner_id = ? AND group_id IS NULL";
+                pstmt = conn.prepareStatement(sql);
+                pstmt.setString(1, fileName);
+                pstmt.setLong(2, uploaderId);
+            }
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    File file = new File();
+                    file.setId(rs.getLong("file_id"));
+                    file.setFileName(rs.getString("file_name"));
+                    file.setStoredPath(rs.getString("stored_path"));
+                    file.setFileSize(rs.getLong("file_size"));
+                    file.setFileType(rs.getString("file_type"));
+                    file.setOwnerId(rs.getLong("owner_id"));
+                    long foundGroupId = rs.getLong("group_id");
+                    if (!rs.wasNull()) {
+                        file.setGroupId(foundGroupId);
+                    }
+                    return file;
+                }
+            }
+        } finally {
+            if (pstmt != null) pstmt.close();
+            if (conn != null) conn.close();
+        }
+        return null;
+    }
+
+    public void update(File file) throws SQLException {
+        String sql = "UPDATE files SET stored_path = ?, file_size = ?, upload_date = NOW() WHERE file_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, file.getStoredPath());
+            pstmt.setLong(2, file.getFileSize());
+            pstmt.setLong(3, file.getId());
+            pstmt.executeUpdate();
+        }
     }
 }

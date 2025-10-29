@@ -12,7 +12,7 @@ import com.dut.filestorage.model.entity.Group;
 import com.dut.filestorage.utils.DatabaseManager;
 
 public class GroupDAO {
-
+    
     public Group save(Group group) throws SQLException {
         String sql = "INSERT INTO groups (group_name, owner_id) VALUES (?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
@@ -28,8 +28,8 @@ public class GroupDAO {
 
             try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                 if (generatedKeys.next()) {
-                    group.setGroupId(generatedKeys.getLong(1)); // Lấy ID vừa được tạo
-                    return group;
+                    group.setGroupId(generatedKeys.getLong(1));
+                    return group; // Trả về đối tượng Group đã có ID
                 } else {
                     throw new SQLException("Creating group failed, no ID obtained.");
                 }
@@ -63,7 +63,7 @@ public class GroupDAO {
                     group.setGroupName(rs.getString("group_name"));
                     group.setOwnerId(rs.getLong("owner_id"));
                     if (rs.getTimestamp("created_at") != null) {
-                        group.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
+                         group.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
                     }
                     return group;
                 }
@@ -74,9 +74,7 @@ public class GroupDAO {
 
     public List<Group> findAllGroupsByUserId(long userId) throws SQLException {
         List<Group> groups = new ArrayList<>();
-        String sql = "SELECT g.* FROM groups g " +
-                     "INNER JOIN group_members gm ON g.group_id = gm.group_id " +
-                     "WHERE gm.user_id = ?";
+        String sql = "SELECT g.* FROM groups g INNER JOIN group_members gm ON g.group_id = gm.group_id WHERE gm.user_id = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -86,9 +84,6 @@ public class GroupDAO {
                     group.setGroupId(rs.getLong("group_id"));
                     group.setGroupName(rs.getString("group_name"));
                     group.setOwnerId(rs.getLong("owner_id"));
-                    if (rs.getTimestamp("created_at") != null) {
-                        group.setCreatedAt(rs.getTimestamp("created_at").toLocalDateTime());
-                    }
                     groups.add(group);
                 }
             }

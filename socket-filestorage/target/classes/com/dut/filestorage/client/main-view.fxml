@@ -5,28 +5,38 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.TableColumn?>
 <?import javafx.scene.control.TableView?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.ToolBar?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
+<?import javafx.scene.text.Font?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="789.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="875.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
    <top>
       <VBox prefHeight="43.0" prefWidth="600.0" BorderPane.alignment="CENTER">
          <children>
-            <ToolBar prefHeight="40.0" prefWidth="648.0">
+            <ToolBar prefHeight="86.0" prefWidth="904.0">
               <items>
                 <Button fx:id="uploadButton" mnemonicParsing="false" onAction="#onUploadButtonClick" text="Upload" />
                   <Button fx:id="downloadButton" mnemonicParsing="false" onAction="#onDownloadButtonClick" text="Dowload" />
                   <Button fx:id="deleteButton" mnemonicParsing="false" onAction="#onDeleteButtonClick" text="Delete" />
                   <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" text="Share" />
                   <Button fx:id="newGroupButton" mnemonicParsing="false" onAction="#onNewGroupButtonClick" text="New Group" />
-                  <Button fx:id="accessLinkButton" mnemonicParsing="false" onAction="#onAccessLinkClick" text="Access Link" />
                   <Button fx:id="inviteButton" mnemonicParsing="false" onAction="#onInviteMemberClick" text="Invite Member" visible="false" />
                   <Button fx:id="kickButton" mnemonicParsing="false" onAction="#onKickMemberClick" text="Kick Member" visible="false" />
                   <Button fx:id="viewMembersButton" mnemonicParsing="false" onAction="#onViewMembersClick" text="View Members" visible="false" />
                   <Button fx:id="backButton" alignment="TOP_LEFT" mnemonicParsing="false" onAction="#onBackButtonClick" text="Back " visible="false" />
                   <Button mnemonicParsing="false" onAction="#onLogoutAction" text="Log out" />
+                  <Label fx:id="currentUserLabel" maxWidth="100.0" text="Userrrrrrrr">
+                     <padding>
+                        <Insets left="10.0" />
+                     </padding>
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Label>
               </items>
             </ToolBar>
          </children>
@@ -47,15 +57,6 @@
          </padding>
       </VBox>
    </left>
-   <center>
-      <TableView fx:id="mainTableView" prefHeight="338.0" prefWidth="726.0" BorderPane.alignment="CENTER">
-        <columns>
-          <TableColumn fx:id="nameColumn" prefWidth="208.79999542236328" text="Name" />
-          <TableColumn fx:id="sizeColumn" prefWidth="184.0" text="Size (bytes)" />
-            <TableColumn fx:id="dateModifiedColumn" minWidth="0.0" prefWidth="204.00003051757812" text="Last Modified" />
-        </columns>
-      </TableView>
-   </center>
    <bottom>
       <HBox alignment="CENTER" prefHeight="54.0" prefWidth="600.0" BorderPane.alignment="CENTER">
          <padding>
@@ -63,8 +64,28 @@
          </padding>
          <children>
             <Label fx:id="statusLabel" text="Ready" />
-            <Label fx:id="currentUserLabel" />
          </children>
       </HBox>
    </bottom>
+   <center>
+      <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
+         <children>
+            <Pane>
+               <children>
+                  <TextField fx:id="searchField" layoutY="5.0" prefHeight="26.0" prefWidth="205.0" promptText="Search files by name..." />
+                  <Button layoutX="212.0" layoutY="6.0" mnemonicParsing="false" onAction="#onSearchAction" text="Search" />
+                  <Button fx:id="accessLinkButton" layoutX="685.0" layoutY="6.0" mnemonicParsing="false" onAction="#onAccessLinkClick" text="Access Link" />
+                  <Button layoutX="624.0" layoutY="6.0" mnemonicParsing="false" onAction="#onHistoryButtonClick" text="History" />
+               </children>
+            </Pane>
+            <TableView fx:id="mainTableView" prefHeight="283.0" prefWidth="775.0" VBox.vgrow="ALWAYS">
+               <columns>
+                  <TableColumn fx:id="nameColumn" prefWidth="208.79999542236328" text="Name" />
+                  <TableColumn fx:id="sizeColumn" prefWidth="227.19998168945312" text="Size (bytes)" />
+                  <TableColumn fx:id="dateModifiedColumn" minWidth="0.0" prefWidth="369.5999755859375" text="Last Modified" />
+               </columns>
+            </TableView>
+         </children>
+      </VBox>
+   </center>
 </BorderPane>

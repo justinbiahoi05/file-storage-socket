@@ -56,6 +56,12 @@ public class RegisterController {
                     if (serverResponse != null && serverResponse.startsWith("200 OK")) {
                         statusLabel.setStyle("-fx-text-fill: green;");
                         statusLabel.setText("Registration successful! You can now go back to login.");
+                        try {
+                            SceneManager.switchScene("login-view.fxml");
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            statusLabel.setText("Error loading login page.");
+                        }
                     } else {
                         statusLabel.setStyle("-fx-text-fill: red;");
                         // Trích xuất thông báo lỗi từ server
@@ -81,6 +87,16 @@ public class RegisterController {
         } catch (IOException e) {
             e.printStackTrace();
             statusLabel.setText("Error loading login page.");
+        }
+    }
+    @FXML
+    protected void onLogoClick() {
+    // Nếu đang ở trang chủ rồi thì không cần làm gì
+    // Nếu ở các trang khác, hàm này sẽ tải lại trang chủ
+        try {
+            SceneManager.loadScene("homepage-view.fxml", "File Storage - Welcome");
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 }

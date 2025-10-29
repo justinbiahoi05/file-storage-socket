@@ -2,10 +2,13 @@ package com.dut.filestorage.client;
 
 import java.io.IOException;
 
+import com.dut.filestorage.model.entity.User;
+
 public class SocketClientSingleton {
 
     private static SocketClientSingleton instance;
     private SocketClient socketClient;
+    private User currentUser; 
 
     private SocketClientSingleton() {
         try {
@@ -26,6 +29,19 @@ public class SocketClientSingleton {
 
     public SocketClient getSocketClient() {
         return this.socketClient;
+    }
+    
+    // --- CÁC HÀM MỚI ĐỂ QUẢN LÝ USER ---
+    public void setCurrentUser(User user) {
+        this.currentUser = user;
+    }
+
+    public User getCurrentUser() {
+        return this.currentUser;
+    }
+
+    public void clearCurrentUser() {
+        this.currentUser = null;
     }
     
      public boolean reconnect() {

@@ -8,6 +8,7 @@ public class User {
     private String email;
     private String passwordHash;
     private LocalDateTime createdAt;
+     private String roleInGroup;
 
     public User() {}
 
@@ -21,4 +22,7 @@ public class User {
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public String getRoleInGroup() { return roleInGroup; }
+    public void setRoleInGroup(String roleInGroup) { this.roleInGroup = roleInGroup; }
+
 }

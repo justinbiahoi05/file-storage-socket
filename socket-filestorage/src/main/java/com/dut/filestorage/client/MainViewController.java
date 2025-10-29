@@ -25,6 +25,7 @@ import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Dialog;
+import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TableColumn;
@@ -43,6 +44,7 @@ public class MainViewController {
     @FXML private Label statusLabel;
     @FXML private Label currentUserLabel;
     @FXML private Button viewMembersButton;
+    @FXML private TextField searchField;
     private long currentGroupId = -1;
 
     // --- Buttons ---
@@ -67,14 +69,19 @@ public class MainViewController {
     public void initialize() {
         this.socketClient = SocketClientSingleton.getInstance().getSocketClient();
         mainTableView.setItems(tableData);
+            mainTableView.setOnMouseClicked(event -> {
+                if (event.getClickCount() == 2) {
+                    handleDoubleClickOnTable();
+                }
+            });
+        User currentUser = SocketClientSingleton.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            currentUserLabel.setText(currentUser.getUsername());
+        } else {
+            currentUserLabel.setText("Welcome, Guest!"); // Phòng trường hợp lỗi
+        }
 
-        mainTableView.setOnMouseClicked(event -> {
-            if (event.getClickCount() == 2) {
-                handleDoubleClickOnTable();
-            }
-        });
-
-        onMyFilesClick(); // Load view mặc định
+        onMyFilesClick();
     }
 
     // --- HÀM QUẢN LÝ TRẠNG THÁI GIAO DIỆN ---
@@ -261,22 +268,47 @@ public class MainViewController {
     }
 
     private void uploadFileThread(java.io.File fileToUpload, Long groupId) {
-        statusLabel.setText("Uploading " + fileToUpload.getName() + "...");
+        statusLabel.setText("Preparing to upload " + fileToUpload.getName() + "...");
+        
         new Thread(() -> {
             try {
-                String response = socketClient.uploadFile(fileToUpload, groupId);
+                // --- BƯỚC 1 (MỚI): HỎI SERVER ĐỂ LẤY BASE VERSION ---
+                int baseVersion = socketClient.findLatestVersion(fileToUpload.getName(), groupId);
+                System.out.println("DEBUG: Server reported baseVersion is: " + baseVersion);
+
+                // --- BƯỚC 2: HỎI NGƯỜI DÙNG NOTES (như cũ) ---
+                // Phải thực hiện trên luồng JavaFX
                 Platform.runLater(() -> {
-                    showAlert(Alert.AlertType.INFORMATION, "Upload Status", response);
-                    if (response != null && response.startsWith("202 OK")) {
-                        if (groupId != null) {
-                            loadGroupFilesView(groupId);
-                        } else {
-                            onMyFilesClick();
+                    TextInputDialog notesDialog = new TextInputDialog("Updated content.");
+                    notesDialog.setTitle("Version Notes");
+                    notesDialog.setHeaderText("Enter notes for this version of '" + fileToUpload.getName() + "'");
+                    notesDialog.setContentText("Notes:");
+                    Optional<String> notesResult = notesDialog.showAndWait();
+                    String notes = notesResult.orElse("");
+
+                    // --- BƯỚC 3: BẮT ĐẦU LUỒNG UPLOAD VỚI BASE VERSION ĐÚNG ---
+                    statusLabel.setText("Uploading " + fileToUpload.getName() + "...");
+                    new Thread(() -> {
+                        try {
+                            String response = socketClient.uploadFile(fileToUpload, groupId, baseVersion, notes);
+                            Platform.runLater(() -> {
+                                showAlert(AlertType.INFORMATION, "Upload Status", response);
+                                if (response != null && response.startsWith("202- OK")) {
+                                    if (groupId != null) {
+                                        loadGroupFilesView(groupId);
+                                    } else {
+                                        onMyFilesClick();
+                                    }
+                                }
+                            });
+                        } catch (IOException e) {
+                            Platform.runLater(() -> showAlert(AlertType.ERROR, "Upload Error", "Upload failed: " + e.getMessage()));
                         }
-                    }
+                    }).start();
                 });
+
             } catch (IOException e) {
-                Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Upload Error", "Upload failed: " + e.getMessage()));
+                Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Could not get file info from server: " + e.getMessage()));
             }
         }).start();
     }
@@ -554,6 +586,91 @@ public class MainViewController {
         }
     }
 
+    @FXML
+    protected void onHistoryButtonClick() {
+        Object selectedItem = mainTableView.getSelectionModel().getSelectedItem();
+        if (selectedItem == null || !(selectedItem instanceof File)) {
+            showAlert(AlertType.WARNING, "Selection Error", "Please select a file to view its history.");
+            return;
+        }
+        File selectedFile = (File) selectedItem;
+
+        try {
+            FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("version-history-view.fxml"));
+            DialogPane dialogPane = loader.load();
+            
+            VersionHistoryController controller = loader.getController();
+            controller.setFile(selectedFile);
+            
+            Dialog<ButtonType> dialog = new Dialog<>();
+            dialog.setDialogPane(dialogPane);
+            dialog.setTitle("Version History");
+            
+            // Thêm nút Restore vào DialogPane từ code
+            ButtonType restoreButtonType = new ButtonType("Restore Selected Version", ButtonBar.ButtonData.OK_DONE);
+            dialogPane.getButtonTypes().add(restoreButtonType);
+            
+            // Lấy nút Restore và gán sự kiện onAction cho nó
+            Button restoreButton = (Button) dialogPane.lookupButton(restoreButtonType);
+            restoreButton.setOnAction(event -> controller.onRestoreClick());
+            
+            dialogPane.getButtonTypes().add(ButtonType.CLOSE);
+            
+            dialog.showAndWait();
+            
+            // Sau khi dialog đóng, tải lại view chính để cập nhật thông tin file
+            refreshCurrentView();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert(AlertType.ERROR, "Error", "Could not open version history window.");
+        }
+    }
+
+    @FXML
+    protected void onSearchAction() {
+        String keyword = searchField.getText().trim();
+        if (keyword.isEmpty()) {
+            refreshCurrentView();
+            return;
+        }
+
+        statusLabel.setText("Searching for '" + keyword + "'...");
+        tableData.clear();
+        
+        // Tạo một bản sao của view hiện tại và group ID để luồng mới có thể dùng
+        final CurrentView viewForSearch = currentView;
+        final long groupIdForSearch = currentGroupId;
+
+        new Thread(() -> {
+            try {
+                List<File> searchResults;
+                
+                // --- LOGIC MỚI: GỌI HÀM SEARCH TƯƠNG ỨNG VỚI VIEW ---
+                switch (viewForSearch) {
+                    case SHARED_FILES:
+                        searchResults = socketClient.searchSharedFiles(keyword);
+                        break;
+                    case GROUP_FILES:
+                        searchResults = socketClient.searchGroupFiles(groupIdForSearch, keyword);
+                        break;
+                    case MY_FILES:
+                    default:
+                        searchResults = socketClient.searchMyFiles(keyword);
+                        break;
+                }
+                
+                Platform.runLater(() -> {
+                    setupFileViewColumns();
+                    tableData.setAll(searchResults);
+                    statusLabel.setText(searchResults.size() + " result(s) found.");
+                });
+            } catch (Exception e) {
+                Platform.runLater(() -> showAlert(AlertType.ERROR, "Search Error", "Failed to perform search."));
+            }
+        }).start();
+    }
+
     // --- HÀM TIỆN ÍCH ---
     private void showAlert(AlertType alertType, String title, String content) {
         Alert alert = new Alert(alertType);
@@ -613,7 +730,7 @@ public class MainViewController {
     }
 
     // --- CÁC HÀM PHỤ ĐỂ CẤU HÌNH CỘT CHO TABLEVIEW ---
-private void setupFileViewColumns() {
+    private void setupFileViewColumns() {
         mainTableView.getColumns().clear();
         
         TableColumn<Object, String> nameCol = new TableColumn<>("Name");
@@ -623,11 +740,19 @@ private void setupFileViewColumns() {
             }
             return new SimpleStringProperty("");
         });
-        nameCol.setPrefWidth(300);
+        nameCol.setPrefWidth(250);
         
         TableColumn<Object, Long> sizeCol = new TableColumn<>("Size (bytes)");
         sizeCol.setCellValueFactory(new PropertyValueFactory<>("fileSize"));
 
+        TableColumn<Object, String> ownerCol = new TableColumn<>("Owner");
+        ownerCol.setCellValueFactory(cellData -> {
+            if (cellData.getValue() instanceof File) {
+                return new SimpleStringProperty(((File)cellData.getValue()).getOwnerName());
+            }
+            return new SimpleStringProperty("");
+        });
+        ownerCol.setPrefWidth(120);
         TableColumn<Object, String> dateCol = new TableColumn<>("Last Modified");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         dateCol.setCellValueFactory(cellData -> {
@@ -639,7 +764,8 @@ private void setupFileViewColumns() {
         });
         dateCol.setPrefWidth(150);
 
-        mainTableView.getColumns().addAll(nameCol, sizeCol, dateCol);
+        // Thêm ownerCol vào danh sách cột
+        mainTableView.getColumns().addAll(nameCol, sizeCol, ownerCol, dateCol);
     }
 
     private void setupGroupViewColumns() {
@@ -668,8 +794,14 @@ private void setupFileViewColumns() {
         
         TableColumn<Object, String> nameCol = new TableColumn<>("Username");
         nameCol.setCellValueFactory(new PropertyValueFactory<>("username"));
-        nameCol.setPrefWidth(350);
+        nameCol.setPrefWidth(250);
         
-        mainTableView.getColumns().addAll(idCol, nameCol);
+        TableColumn<Object, String> roleCol = new TableColumn<>("Role");
+        // Dùng PropertyValueFactory vì thuộc tính là roleInGroup
+        roleCol.setCellValueFactory(new PropertyValueFactory<>("roleInGroup")); 
+        roleCol.setPrefWidth(150);
+        
+        // Thêm roleCol vào danh sách cột
+        mainTableView.getColumns().addAll(idCol, nameCol, roleCol);
     }
 }

@@ -45,19 +45,26 @@ public class GroupMemberDAO {
             pstmt.executeUpdate();
         }
     }
-      public List<User> findMembersByGroupId(long groupId) throws SQLException {
+    public List<User> findMembersByGroupId(long groupId) throws SQLException {
         List<User> members = new ArrayList<>();
-        String sql = "SELECT u.user_id, u.username FROM users u " +
-                     "INNER JOIN group_members gm ON u.user_id = gm.user_id " +
-                     "WHERE gm.group_id = ?";
+        // Sửa câu SQL để lấy thêm cột 'role' từ bảng group_members
+        String sql = "SELECT u.user_id, u.username, gm.role FROM users u " +
+                    "INNER JOIN group_members gm ON u.user_id = gm.user_id " +
+                    "WHERE gm.group_id = ?";
+        
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setLong(1, groupId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     User user = new User();
                     user.setId(rs.getLong("user_id"));
                     user.setUsername(rs.getString("username"));
+                    
+                    // --- THÊM DÒNG MỚI ---
+                    user.setRoleInGroup(rs.getString("role")); // Lấy role và gán vào đối tượng User
+                    
                     members.add(user);
                 }
             }

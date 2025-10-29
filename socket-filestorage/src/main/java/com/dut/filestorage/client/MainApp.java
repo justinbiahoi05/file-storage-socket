@@ -15,7 +15,7 @@ public class MainApp extends Application {
         SocketClientSingleton.getInstance();
         
         FXMLLoader fxmlLoader = new FXMLLoader(MainApp.class.getResource("login-view.fxml"));
-        Scene scene = new Scene(fxmlLoader.load(), 350, 270);
+        Scene scene = new Scene(fxmlLoader.load(), 844, 475);
         
         stage.setTitle("File Storage Client");
         stage.setScene(scene);

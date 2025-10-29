@@ -7,6 +7,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
 import javafx.scene.control.PasswordField;
 import javafx.scene.control.TextField;
 
@@ -29,8 +30,31 @@ public class ShareDialogController {
         this.socketClient = SocketClientSingleton.getInstance().getSocketClient();
 
         // Thêm các tùy chọn đơn vị thời gian
-        expiresUnitComboBox.getItems().addAll("Hour(s)", "Day(s)");
-        expiresUnitComboBox.getSelectionModel().selectFirst(); // Chọn "Hour(s)" làm mặc định
+        expiresUnitComboBox.getItems().addAll("Minute(s)", "Hour(s)", "Day(s)");
+        expiresUnitComboBox.getSelectionModel().select("Minute(s)");
+        expiresUnitComboBox.setButtonCell(new ListCell<String>() {
+        @Override
+        protected void updateItem(String item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+            } else {
+                setText(item);
+            }
+        }
+    });
+
+    expiresUnitComboBox.setCellFactory(param -> new ListCell<String>() {
+        @Override
+        protected void updateItem(String item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+            } else {
+                setText(item);
+            }
+        }
+    });
 
         // Logic để bật/tắt ô mật khẩu
         passwordField.disableProperty().bind(passwordCheckBox.selectedProperty().not());
@@ -57,9 +81,13 @@ public class ShareDialogController {
 
             // Kiểm tra xem người dùng có nhập số hợp lệ không
             if (timeValue.matches("\\d+")) { // Regex kiểm tra có phải là số hay không
-                if ("Hour(s)".equals(unit)) {
+                if ("Minute(s)".equals(unit)) {
+                    expiresInParam = timeValue + "m";
+                }
+                else if ("Hour(s)".equals(unit)) {
                     expiresInParam = timeValue + "h";
-                } else if ("Day(s)".equals(unit)) {
+                }
+                 else if ("Day(s)".equals(unit)) {
                     expiresInParam = timeValue + "d";
                 }
             } else {

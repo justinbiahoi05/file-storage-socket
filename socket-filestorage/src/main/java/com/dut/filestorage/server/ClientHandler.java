@@ -5,10 +5,13 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.dut.filestorage.model.dao.UserDAO;
 import com.dut.filestorage.model.entity.File;
+import com.dut.filestorage.model.entity.FileVersion;
 import com.dut.filestorage.model.entity.Group;
 import com.dut.filestorage.model.entity.User;
 import com.dut.filestorage.model.service.CollaborationService;
@@ -62,7 +65,12 @@ public class ClientHandler extends Thread {
     }
 
     private void processCommand(String commandLine) {
-        String[] parts = commandLine.split(" ");
+         List<String> partsList = new ArrayList<>();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(commandLine);
+        while (m.find()) {
+            partsList.add(m.group(1).replace("\"", ""));
+        }
+        String[] parts = partsList.toArray(new String[0]);
         String command = parts[0].toUpperCase();
 
         switch (command) {
@@ -83,6 +91,12 @@ public class ClientHandler extends Thread {
             case "ACCESS_LINK":
                 handleAccessLink(parts);
                 break;
+            case "SEARCH":
+                handleSearch(parts);
+                break;
+            case "VERSIONS": handleVersions(parts); break;
+            case "RESTORE": handleRestore(parts); break;
+            case "GET_VERSION": handleGetVersion(parts); break;
             default:
                 out.println("500 ERROR Unknown command: " + command);
         }
@@ -127,47 +141,45 @@ public class ClientHandler extends Thread {
     }
 
     private void handleUpload(String[] parts) {
-        if (loggedInUser == null) {
-            out.println("401 ERROR Not logged in.");
-            return;
-        }
-        
-        // Cú pháp nội bộ Client gửi: UPLOAD <name> <size> <type> [--group <id>]
-        if (parts.length < 4) {
-            out.println("400 ERROR Bad syntax for UPLOAD command.");
-            return;
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
+    
+        // Cần ít nhất 6 phần: UPLOAD, name, size, type, base_version, notes
+        if (parts.length < 6) { 
+            out.println("400 ERROR Bad syntax for UPLOAD command (internal). Not enough parts."); 
+            return; 
         }
 
         try {
+            // --- PHÂN TÍCH CÁC THAM SỐ CỐ ĐỊNH ---
             String fileName = parts[1];
             long fileSize = Long.parseLong(parts[2]);
             String fileType = parts[3];
+            int baseVersion = Integer.parseInt(parts[4]);
+            String notes = parts[5].equals("null") ? null : parts[5];
+            
             Long groupId = null;
-
-            // --- PHẦN SỬA LỖI QUAN TRỌNG NHẤT NẰM Ở ĐÂY ---
-            // Vòng lặp này sẽ quét qua các tham số để tìm "--group"
-            // thay vì giả định vị trí cố định của nó.
-            for (int i = 4; i < parts.length - 1; i++) {
-                if ("--group".equalsIgnoreCase(parts[i])) {
+            
+            // --- PHÂN TÍCH THAM SỐ TÙY CHỌN (--group) MỘT CÁCH AN TOÀN ---
+            // Bắt đầu tìm kiếm từ vị trí thứ 6
+            for (int i = 6; i < parts.length; i++) {
+                if ("--group".equalsIgnoreCase(parts[i]) && (i + 1 < parts.length)) {
                     try {
                         groupId = Long.parseLong(parts[i + 1]);
                     } catch (NumberFormatException e) {
+                        // Nếu giá trị sau --group không phải là số, báo lỗi
                         throw new Exception("Invalid group ID format provided with --group flag.");
                     }
-                    break; // Tìm thấy thì dừng lại
+                    break; // Tìm thấy thì dừng
                 }
             }
-
-            // Bây giờ, biến `groupId` đã có giá trị đúng (hoặc vẫn là null nếu không có --group)
             
             fileSystemService.checkUploadPermissions(loggedInUser.getId(), groupId);
-            
             out.println("201 READY");
             
             fileSystemService.receiveAndStoreFile(
                 clientSocket.getInputStream(),
                 fileName, fileSize, fileType,
-                loggedInUser.getId(), groupId
+                loggedInUser.getId(), groupId, baseVersion, notes
             );
             
             out.println("202 OK File uploaded successfully.");
@@ -176,7 +188,6 @@ public class ClientHandler extends Thread {
             out.println("400 ERROR Invalid number format in command.");
         } catch (Exception e) {
             out.println("500 ERROR " + e.getMessage());
-            try { clientSocket.close(); } catch (IOException ioException) {}
         }
     }
 
@@ -361,8 +372,6 @@ public class ClientHandler extends Thread {
 
             String token = collaborationService.createPublicLink(fileId, loggedInUser.getId(), password, expiresIn);
             
-            // Giả sử link có dạng http://yourdomain.com/share/TOKEN
-            // Trong đồ án, mình chỉ cần trả về token
             out.println("200 OK Link created. Token: " + token);
             
         } catch (NumberFormatException e) {
@@ -408,6 +417,106 @@ public class ClientHandler extends Thread {
             out.println("400 ERROR " + e.getMessage());
         }
     }
+    private void handleVersions(String[] parts) {
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); out.println("END_OF_LIST"); return; }
+        if (parts.length < 2) { out.println("400 ERROR Usage: VERSIONS <file_id>"); out.println("END_OF_LIST"); return; }
+        
+        try {
+            long fileId = Long.parseLong(parts[1]);
+            List<FileVersion> versions = fileSystemService.getVersionHistory(fileId, loggedInUser.getId());
+            
+            out.println("200 OK --- Version History ---");
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+
+            for (FileVersion v : versions) {
+                // Lấy notes và xử lý trường hợp null
+                String notes = v.getNotes() != null ? v.getNotes() : "";
+                String date = v.getCreatedAt() != null ? v.getCreatedAt().format(formatter) : "N/A";
+                
+                // Đảm bảo chuỗi format có đủ 5 tham số
+                out.println(String.format("%d!v%-4d | Uploader: %-15s | Date: %-16s | Notes: %s",
+                    v.getVersionId(),
+                    v.getVersionNumber(),
+                    v.getUploaderName(),
+                    date,
+                    notes)); // Tham số thứ 5 cho %s cuối cùng
+            }
+        } catch (Exception e) {
+            out.println("500 ERROR " + e.getMessage());
+        } finally {
+            out.println("END_OF_LIST");
+        }
+    }
+    
+    private void handleGetVersion(String[] parts) {
+        // Cú pháp: GET_VERSION <file_name> [--group <id>]
+        if (loggedInUser == null) { /* ... */ return; }
+        if (parts.length < 2) { /* ... */ return; }
+        try {
+            String fileName = parts[1];
+            Long groupId = null;
+            if (parts.length > 3 && "--group".equalsIgnoreCase(parts[2])) {
+                groupId = Long.parseLong(parts[3]);
+            }
+            int version = fileSystemService.findLatestVersion(fileName, loggedInUser.getId(), groupId);
+            out.println("200 OK " + version);
+        } catch (Exception e) {
+            out.println("500 ERROR " + e.getMessage());
+        }
+    }
+    
+    private void handleRestore(String[] parts) {
+        if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
+        if (parts.length < 2) { out.println("400 ERROR Usage: RESTORE <version_id>"); return; }
+        
+        try {
+            long versionId = Long.parseLong(parts[1]);
+            fileSystemService.restoreVersion(versionId, loggedInUser.getId());
+            out.println("200 OK File restored successfully.");
+        } catch (NumberFormatException e) {
+            out.println("400 ERROR Invalid version ID.");
+        } catch (Exception e) {
+            out.println("400 ERROR " + e.getMessage());
+        }
+    }
+
+    private void handleSearch(String[] parts) {
+        if (loggedInUser == null) { /* ... */ return; }
+        // Cú pháp: SEARCH <--my-files|--shared|--group <id>> <keyword>
+        if (parts.length < 3) { 
+            out.println("400 ERROR Bad syntax for SEARCH command.");
+            out.println("END_OF_LIST");
+            return;
+        }
+
+        String searchScope = parts[1];
+        String keyword;
+        List<File> results = new ArrayList<>();
+
+        try {
+            if ("--my-files".equalsIgnoreCase(searchScope)) {
+                keyword = parts[2];
+                results = fileSystemService.searchMyFiles(keyword, loggedInUser.getId());
+            } else if ("--shared".equalsIgnoreCase(searchScope)) {
+                keyword = parts[2];
+                results = fileSystemService.searchSharedFiles(keyword, loggedInUser.getId());
+            } else if ("--group".equalsIgnoreCase(searchScope)) {
+                if (parts.length < 4) throw new Exception("Group ID is missing for group search.");
+                long groupId = Long.parseLong(parts[2]);
+                keyword = parts[3];
+                 System.out.println("DEBUG: Searching GROUP_FILES in group " + groupId + " with keyword '" + keyword + "'"); // LOG 6
+                results = fileSystemService.searchGroupFiles(groupId, keyword, loggedInUser.getId());
+            } else {
+                throw new Exception("Invalid search scope: " + searchScope);
+            }
+            printFileList(results, "Search Results for '" + keyword + "'");
+
+        } catch (Exception e) {
+            out.println("500 ERROR " + e.getMessage());
+        } finally {
+            out.println("END_OF_LIST");
+        }
+    }
 
     // --- CÁC HÀM PHỤ ĐỂ IN DANH SÁCH ---
     private void printFileList(List<File> files, String header) {
@@ -415,14 +524,20 @@ public class ClientHandler extends Thread {
             out.println("200 OK No files found.");
         } else {
             out.println("200 OK --- " + header + " ---");
-            for (File file : files) {
-                String uploadDateStr = (file.getUploadDate() != null) ? file.getUploadDate().toString() : "N/A";
             
-                out.println(String.format("ID: %-5d | Name: %-30s | Size: %-10d | Last Modified: %s",
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+            for (File file : files) {
+                String uploadDateStr = (file.getUploadDate() != null) ? file.getUploadDate().format(formatter) : "N/A";
+                String ownerName = file.getOwnerName() != null ? file.getOwnerName() : "N/A";
+                
+                out.println(String.format("ID: %-5d | Name: %-30s | Size: %-10d | Owner: %-15s | Last Modified: %-25s | Version: %d",
                         file.getId(),
                         file.getFileName(),
                         file.getFileSize(),
-                        uploadDateStr));
+                        ownerName,
+                        uploadDateStr,
+                        file.getCurrentVersion()));
             }
         }
     }
@@ -444,7 +559,13 @@ public class ClientHandler extends Thread {
         } else {
             out.println("200 OK --- Group Members ---");
             for (User user : users) {
-                out.println(String.format("ID: %-5d | Username: %s", user.getId(), user.getUsername()));
+                String role = user.getRoleInGroup() != null ? user.getRoleInGroup() : "N/A";
+                
+                // Thêm %s cho Role
+                out.println(String.format("ID: %-5d | Username: %-20s | Role: %s",
+                        user.getId(),
+                        user.getUsername(),
+                        role)); // Thêm role vào
             }
         }
     }

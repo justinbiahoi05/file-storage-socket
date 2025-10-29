@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.DialogPane?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.VBox?>
+<?import javafx.geometry.Insets?>
+
+<DialogPane xmlns="http://javafx.com/javafx/21" xmlns:fx="http://javafx.com/fxml/1" 
+            fx:controller="com.dut.filestorage.client.VersionHistoryController"
+            fx:id="dialogPane" prefHeight="400.0" prefWidth="600.0">
+            
+    <header>
+        <Label style="-fx-font-size: 16px; -fx-font-weight: bold;" text="Version History"/>
+    </header>
+            
+    <content>
+        <VBox spacing="10.0">
+            <children>
+                <TableView fx:id="versionTableView" VBox.vgrow="ALWAYS">
+                    <columns>
+                        <TableColumn fx:id="versionNumberColumn" prefWidth="75.0" text="Version"/>
+                        <TableColumn fx:id="uploaderNameColumn" prefWidth="150.0" text="Uploader"/>
+                        <TableColumn fx:id="detailsColumn" prefWidth="350.0" text="Details (Date &amp; Notes)"/>
+                    </columns>
+                    <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY"/>
+                    </columnResizePolicy>
+                </TableView>
+            </children>
+            <padding>
+                <Insets top="10.0"/>
+            </padding>
+        </VBox>
+    </content>
+    
+</DialogPane>

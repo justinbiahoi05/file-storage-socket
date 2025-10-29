@@ -64,7 +64,7 @@ public class CollaborationService {
     }
 
     // --- GROUP LOGIC ---
-    public void createGroup(String groupName, Long ownerId) throws Exception {
+    public Group createGroup(String groupName, Long ownerId) throws Exception {
         if (groupName == null || groupName.trim().isEmpty()) throw new Exception("Group name cannot be empty.");
         if (groupDAO.findByName(groupName)) throw new Exception("Group name '" + groupName + "' already exists.");
         
@@ -72,10 +72,18 @@ public class CollaborationService {
         newGroup.setGroupName(groupName);
         newGroup.setOwnerId(ownerId);
         
+        // Hàm save nên trả về đối tượng Group đã được lưu (với ID đã được tạo)
         Group savedGroup = groupDAO.save(newGroup);
 
-        // Tự động thêm chủ nhóm làm thành viên owner
-        addMemberToGroup(savedGroup.getGroupId(), ownerId, ownerId, "owner");
+        // Tự động thêm chính chủ nhóm vào làm thành viên với vai trò "owner"
+        GroupMember firstMember = new GroupMember();
+        firstMember.setGroupId(savedGroup.getGroupId()); // Lấy ID của nhóm vừa tạo
+        firstMember.setUserId(ownerId);
+        firstMember.setRole("owner");
+        
+        groupMemberDAO.save(firstMember);
+        
+        return savedGroup;
     }
     
     private void addMemberToGroup(long groupId, long inviterId, long targetUserId, String role) throws Exception {
@@ -163,14 +171,31 @@ public class CollaborationService {
 
     // Hàm để phân tích chuỗi thời gian
     private LocalDateTime parseExpiresIn(String expiresIn) {
-        if (expiresIn.endsWith("h")) {
-            long hours = Long.parseLong(expiresIn.replace("h", ""));
-            return LocalDateTime.now().plusHours(hours);
-        } else if (expiresIn.endsWith("d")) {
-            long days = Long.parseLong(expiresIn.replace("d", ""));
-            return LocalDateTime.now().plusDays(days);
+        if (expiresIn == null || expiresIn.trim().isEmpty()) {
+            return null;
         }
-        return null; // Mặc định không hết hạn nếu định dạng sai
+        
+        // Chuyển đổi sang chữ thường để xử lý cho dễ (ví dụ: 30M -> 30m)
+        String lowerCaseExpiresIn = expiresIn.toLowerCase();
+
+        try {
+            if (lowerCaseExpiresIn.endsWith("m")) {
+                long minutes = Long.parseLong(lowerCaseExpiresIn.replace("m", ""));
+                return LocalDateTime.now().plusMinutes(minutes);
+            } else if (lowerCaseExpiresIn.endsWith("h")) {
+                long hours = Long.parseLong(lowerCaseExpiresIn.replace("h", ""));
+                return LocalDateTime.now().plusHours(hours);
+            } else if (lowerCaseExpiresIn.endsWith("d")) {
+                long days = Long.parseLong(lowerCaseExpiresIn.replace("d", ""));
+                return LocalDateTime.now().plusDays(days);
+            }
+        } catch (NumberFormatException e) {
+            // Nếu người dùng nhập sai định dạng (ví dụ: "abc_h"), bỏ qua
+            System.err.println("Invalid expires_in format: " + expiresIn);
+            return null;
+        }
+        
+        return null; // Trả về null nếu không có đơn vị hợp lệ
     }
     
     public File validatePublicLink(String token, String password) throws Exception {

@@ -14,19 +14,26 @@ import java.util.List;
 import java.util.UUID;
 
 import com.dut.filestorage.model.dao.FileDAO;
+import com.dut.filestorage.model.dao.FileVersionDAO;
+import com.dut.filestorage.model.dao.GroupDAO;
 import com.dut.filestorage.model.dao.ShareDAO;
 import com.dut.filestorage.model.entity.File;
+import com.dut.filestorage.model.entity.FileVersion;
+import com.dut.filestorage.model.entity.Group;
 
 public class FileSystemService {
     private FileDAO fileDAO;
     private ShareDAO shareDAO;
     private CollaborationService collaborationService;
     private final Path rootLocation = Paths.get("uploads");
+    private FileVersionDAO fileVersionDAO;
+    private GroupDAO groupDAO = new GroupDAO();
 
     public FileSystemService(CollaborationService collaborationService) {
         this.fileDAO = new FileDAO();
         this.shareDAO = new ShareDAO();
         this.collaborationService = collaborationService;
+        this.fileVersionDAO = new FileVersionDAO();
 
         try {
             Files.createDirectories(rootLocation);
@@ -44,17 +51,15 @@ public class FileSystemService {
         // Nếu groupId là null (upload cá nhân), mặc định cho phép.
     }
 
-    public void receiveAndStoreFile(InputStream socketInputStream,
-                                    String originalFileName,
-                                    long fileSize,
-                                    String fileType,
-                                    Long uploaderId,
-                                    Long groupId) throws Exception {
+     public void receiveAndStoreFile(InputStream socketInputStream,
+                                String originalFileName,
+                                long fileSize,
+                                String fileType,
+                                Long uploaderId,
+                                Long groupId,
+                                int baseVersion,
+                                String notes) throws Exception {
 
-        if (originalFileName == null || originalFileName.isEmpty()) {
-            throw new Exception("File name cannot be empty.");
-        }
-        
         java.io.File tempFile = java.io.File.createTempFile("upload-", ".tmp");
         try (FileOutputStream fos = new FileOutputStream(tempFile)) {
             byte[] buffer = new byte[8192];
@@ -65,45 +70,65 @@ public class FileSystemService {
                 fos.write(buffer, 0, bytesRead);
                 totalBytesRead += bytesRead;
             }
-            if (fileSize != totalBytesRead) throw new IOException("File size mismatch during transfer.");
-        }
-
-        try (InputStream tempFileInputStream = new java.io.FileInputStream(tempFile)) {
-            storeFileMetadataAndPhysical(tempFileInputStream, originalFileName, fileSize, fileType, uploaderId, groupId);
-        } finally {
+            if (fileSize != totalBytesRead) {
+                throw new IOException("File transfer incomplete. Expected " + fileSize + " bytes but received " + totalBytesRead);
+            }
+        } catch (IOException e) {
             tempFile.delete();
+            throw e;
         }
-    }
 
-    private void storeFileMetadataAndPhysical(InputStream finalInputStream,
-                                               String originalFileName,
-                                               long fileSize,
-                                               String fileType,
-                                               Long uploaderId,
-                                               Long groupId) throws Exception {
-        
         String storedFileName = UUID.randomUUID().toString() + "_" + originalFileName;
         Path destinationPath = this.rootLocation.resolve(storedFileName);
-
-        try {
-            Files.copy(finalInputStream, destinationPath, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new Exception("Failed to store physical file.", e);
-        }
         
-        File newFileMetadata = new File();
-        newFileMetadata.setFileName(originalFileName);
-        newFileMetadata.setStoredPath(destinationPath.toString());
-        newFileMetadata.setFileSize(fileSize);
-        newFileMetadata.setFileType(fileType);
-        newFileMetadata.setOwnerId(uploaderId);
-        newFileMetadata.setGroupId(groupId);
-
         try {
-            fileDAO.save(newFileMetadata);
-        } catch (SQLException e) {
+            File existingFile = fileDAO.findByNameAndLocation(originalFileName, uploaderId, groupId);
+            
+            if (existingFile != null) {
+                int latestVersionNum = fileVersionDAO.findLatestVersionNumber(existingFile.getId());
+                if (baseVersion != latestVersionNum) {
+                    throw new Exception("409 CONFLICT: File has been modified by another user. Please download the latest version and merge your changes.");
+                }
+                
+                Files.move(tempFile.toPath(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+                
+                FileVersion newVersion = new FileVersion();
+                newVersion.setFileId(existingFile.getId());
+                newVersion.setVersionNumber(latestVersionNum + 1);
+                newVersion.setStoredPath(destinationPath.toString());
+                newVersion.setUploaderId(uploaderId);
+                newVersion.setNotes(notes);
+                fileVersionDAO.save(newVersion);
+                
+                existingFile.setFileSize(fileSize);
+                existingFile.setStoredPath(destinationPath.toString());
+                fileDAO.update(existingFile);
+
+            } else {
+                Files.move(tempFile.toPath(), destinationPath, StandardCopyOption.REPLACE_EXISTING);
+                
+                File newFileMetadata = new File();
+                newFileMetadata.setFileName(originalFileName);
+                newFileMetadata.setStoredPath(destinationPath.toString());
+                newFileMetadata.setFileSize(fileSize);
+                newFileMetadata.setFileType(fileType);
+                newFileMetadata.setOwnerId(uploaderId);
+                newFileMetadata.setGroupId(groupId);
+                File savedFile = fileDAO.save(newFileMetadata);
+                
+                FileVersion firstVersion = new FileVersion();
+                firstVersion.setFileId(savedFile.getId());
+                firstVersion.setVersionNumber(1);
+                firstVersion.setStoredPath(destinationPath.toString());
+                firstVersion.setUploaderId(uploaderId);
+                firstVersion.setNotes(notes != null ? notes : "First version.");
+                fileVersionDAO.save(firstVersion);
+            }
+        } catch (Exception e) {
             Files.deleteIfExists(destinationPath);
-            throw new Exception("Failed to save file metadata.", e);
+            throw e;
+        } finally {
+            Files.deleteIfExists(tempFile.toPath());
         }
     }
     
@@ -162,6 +187,22 @@ public class FileSystemService {
         return file;
     }
 
+    public List<File> searchMyFiles(String keyword, long userId) throws Exception {
+        return fileDAO.searchInMyFiles(keyword, userId);
+    }
+
+    public List<File> searchSharedFiles(String keyword, long userId) throws Exception {
+        return fileDAO.searchInSharedFiles(keyword, userId);
+    }
+
+    public List<File> searchGroupFiles(long groupId, String keyword, long userId) throws Exception {
+        // Vẫn cần kiểm tra quyền xem nhóm
+        if (!collaborationService.isUserMemberOfGroup(groupId, userId)) {
+            throw new Exception("Access denied. You are not a member of this group.");
+        }
+        return fileDAO.searchInGroupFiles(groupId, keyword);
+    }
+
     public void streamFileToOutput(long fileId, OutputStream outputStream) throws Exception {
         File file = fileDAO.findById(fileId);
         if (file == null) throw new Exception("File not found during streaming.");
@@ -179,5 +220,80 @@ public class FileSystemService {
             }
             outputStream.flush();
         }
+    }
+    public List<FileVersion> getVersionHistory(long fileId, long userId) throws Exception {
+        File file = fileDAO.findById(fileId);
+        if(file == null) throw new Exception("File not found.");
+        
+        // Kiểm tra quyền (là owner, được share, hoặc là thành viên của nhóm chứa file)
+        boolean hasPermission = file.getOwnerId().equals(userId) || 
+                                shareDAO.isFileSharedWithUser(fileId, userId) || 
+                                (file.getGroupId() != null && collaborationService.isUserMemberOfGroup(file.getGroupId(), userId));
+        
+        if(!hasPermission) throw new Exception("Access denied.");
+
+        return fileVersionDAO.findByFileId(fileId);
+    }
+
+    public void restoreVersion(long versionId, long requestUserId) throws Exception {
+        // --- BƯỚC 1: LẤY THÔNG TIN PHIÊN BẢN CẦN KHÔI PHỤC ---
+        FileVersion versionToRestore = fileVersionDAO.findById(versionId);
+        if (versionToRestore == null) {
+        throw new Exception("Version not found.");
+        }
+        // --- BƯỚC 2: LẤY THÔNG TIN FILE GỐC VÀ KIỂM TRA QUYỀN ---
+        long fileId = versionToRestore.getFileId();
+        File mainFile = fileDAO.findById(fileId);
+        if (mainFile == null) {
+            throw new Exception("Original file associated with this version is missing.");
+        }
+
+        // Kiểm tra quyền: Người khôi phục phải là chủ sở hữu file, hoặc là chủ nhóm chứa file đó
+        boolean isOwner = mainFile.getOwnerId().equals(requestUserId);
+        boolean isGroupOwner = false;
+        if (mainFile.getGroupId() != null) {
+            Group group = groupDAO.findById(mainFile.getGroupId());
+            if (group != null && group.getOwnerId().equals(requestUserId)) {
+                isGroupOwner = true;
+            }
+        }
+
+        if (!isOwner && !isGroupOwner) {
+            throw new Exception("Access denied. Only the file owner or group owner can restore versions.");
+        }
+
+        // --- BƯỚC 3: TẠO MỘT PHIÊN BẢN MỚI LÀ BẢN SAO CỦA PHIÊN BẢN CŨ ---
+        // Điều này giữ lại lịch sử của hành động khôi phục
+
+        // Lấy số hiệu phiên bản mới nhất
+        int latestVersionNum = fileVersionDAO.findLatestVersionNumber(fileId);
+
+        // Tạo bản ghi phiên bản mới
+        FileVersion restoreVersion = new FileVersion();
+        restoreVersion.setFileId(fileId);
+        restoreVersion.setVersionNumber(latestVersionNum + 1);
+        restoreVersion.setStoredPath(versionToRestore.getStoredPath()); // QUAN TRỌNG: Trỏ đến nội dung của phiên bản cũ
+        restoreVersion.setUploaderId(requestUserId); // Người khôi phục là người "upload" phiên bản này
+        restoreVersion.setNotes("Restored from v" + versionToRestore.getVersionNumber());
+        fileVersionDAO.save(restoreVersion);
+
+        // --- BƯỚC 4: CẬP NHẬT FILE CHÍNH ---
+        // Cập nhật lại file chính để trỏ đến nội dung của phiên bản vừa được khôi phục
+        mainFile.setStoredPath(versionToRestore.getStoredPath());
+
+        // Lấy kích thước của file vật lý được khôi phục
+        java.io.File physicalFile = new java.io.File(versionToRestore.getStoredPath());
+        if(physicalFile.exists()){
+            mainFile.setFileSize(physicalFile.length());
+        }
+
+        fileDAO.update(mainFile);
+    }
+    public int findLatestVersion(String fileName, Long uploaderId, Long groupId) throws SQLException {
+        File existingFile = fileDAO.findByNameAndLocation(fileName, uploaderId, groupId);
+        if (existingFile != null) {
+            return fileVersionDAO.findLatestVersionNumber(existingFile.getId());
+        }
+        return 0; // Nếu file chưa tồn tại, base version là 0
     }
 }
