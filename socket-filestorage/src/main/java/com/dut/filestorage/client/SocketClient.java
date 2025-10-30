@@ -119,9 +119,19 @@ public class SocketClient {
         String fileName = localFile.getName();
         long fileSize = localFile.length();
         String fileType = "application/octet-stream";
+        
+        // Đặt ghi chú trong ngoặc kép
         String notesToSend = (notes == null || notes.trim().isEmpty()) ? "null" : "\"" + notes + "\"";
-        String metadataCommand = "UPLOAD " + fileName + " " + fileSize + " " + fileType + " " + baseVersion + " " + notesToSend;
-   
+
+        // Đặt TÊN FILE trong ngoặc kép
+        String metadataCommand = String.format("UPLOAD \"%s\" %d %s %d %s",
+                fileName,
+                fileSize,
+                fileType,
+                baseVersion,
+                notesToSend
+        );
+
         if (groupId != null) {
             metadataCommand += " --group " + groupId;
         }

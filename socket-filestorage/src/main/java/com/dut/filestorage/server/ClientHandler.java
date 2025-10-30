@@ -64,14 +64,20 @@ public class ClientHandler extends Thread {
         }
     }
 
-    private void processCommand(String commandLine) {
-         List<String> partsList = new ArrayList<>();
+    private boolean processCommand(String commandLine) {
+        // Regex này sẽ bắt các chuỗi trong ngoặc kép hoặc các từ đơn
+        List<String> partsList = new ArrayList<>();
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(commandLine);
         while (m.find()) {
-            partsList.add(m.group(1).replace("\"", ""));
+            // Xóa dấu ngoặc kép ở đầu và cuối
+            partsList.add(m.group(1).replaceAll("^\"|\"$", ""));
         }
         String[] parts = partsList.toArray(new String[0]);
+        
+        if (parts.length == 0) return true; // Bỏ qua dòng trống
+
         String command = parts[0].toUpperCase();
+        if ("QUIT".equals(command)) return false;
 
         switch (command) {
             case "REGISTER": handleRegister(parts); break;
@@ -100,6 +106,7 @@ public class ClientHandler extends Thread {
             default:
                 out.println("500 ERROR Unknown command: " + command);
         }
+        return true;
     }
 
     // --- CÁC HÀM XỬ LÝ LỆNH ---
@@ -142,7 +149,7 @@ public class ClientHandler extends Thread {
 
     private void handleUpload(String[] parts) {
         if (loggedInUser == null) { out.println("401 ERROR Not logged in."); return; }
-    
+        
         // Cần ít nhất 6 phần: UPLOAD, name, size, type, base_version, notes
         if (parts.length < 6) { 
             out.println("400 ERROR Bad syntax for UPLOAD command (internal). Not enough parts."); 
@@ -150,8 +157,7 @@ public class ClientHandler extends Thread {
         }
 
         try {
-            // --- PHÂN TÍCH CÁC THAM SỐ CỐ ĐỊNH ---
-            String fileName = parts[1];
+            String fileName = parts[1]; // Bây giờ đã chứa cả khoảng trắng
             long fileSize = Long.parseLong(parts[2]);
             String fileType = parts[3];
             int baseVersion = Integer.parseInt(parts[4]);
@@ -159,17 +165,10 @@ public class ClientHandler extends Thread {
             
             Long groupId = null;
             
-            // --- PHÂN TÍCH THAM SỐ TÙY CHỌN (--group) MỘT CÁCH AN TOÀN ---
-            // Bắt đầu tìm kiếm từ vị trí thứ 6
             for (int i = 6; i < parts.length; i++) {
                 if ("--group".equalsIgnoreCase(parts[i]) && (i + 1 < parts.length)) {
-                    try {
-                        groupId = Long.parseLong(parts[i + 1]);
-                    } catch (NumberFormatException e) {
-                        // Nếu giá trị sau --group không phải là số, báo lỗi
-                        throw new Exception("Invalid group ID format provided with --group flag.");
-                    }
-                    break; // Tìm thấy thì dừng
+                    groupId = Long.parseLong(parts[i + 1]);
+                    break;
                 }
             }
             

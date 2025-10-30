@@ -129,11 +129,12 @@ public class FileDAO {
 
     public List<File> searchInMyFiles(String keyword, long userId) throws SQLException {
         List<File> files = new ArrayList<>();
-        String sql = "SELECT f.*, u.username as owner_name FROM files f " +
-                     "JOIN users u ON f.owner_id = u.user_id " +
-                     "WHERE f.owner_id = ? AND f.group_id IS NULL AND f.file_name LIKE ?";
+        String sql = "SELECT f.*, u.username as owner_name, " +
+                    "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                    "FROM files f JOIN users u ON f.owner_id = u.user_id " +
+                    "WHERE f.owner_id = ? AND f.group_id IS NULL AND f.file_name LIKE ?";
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
             pstmt.setString(2, "%" + keyword + "%");
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -147,12 +148,13 @@ public class FileDAO {
 
     public List<File> searchInSharedFiles(String keyword, long userId) throws SQLException {
         List<File> files = new ArrayList<>();
-        String sql = "SELECT f.*, u.username as owner_name FROM files f " +
-                     "JOIN users u ON f.owner_id = u.user_id " +
-                     "JOIN shares s ON f.file_id = s.file_id " +
-                     "WHERE s.shared_with_user_id = ? AND f.file_name LIKE ?";
+        String sql = "SELECT f.*, u.username as owner_name, " +
+                    "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                    "FROM files f JOIN users u ON f.owner_id = u.user_id " +
+                    "JOIN shares s ON f.file_id = s.file_id " +
+                    "WHERE s.shared_with_user_id = ? AND f.file_name LIKE ?";
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
             pstmt.setString(2, "%" + keyword + "%");
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -166,11 +168,12 @@ public class FileDAO {
 
     public List<File> searchInGroupFiles(long groupId, String keyword) throws SQLException {
         List<File> files = new ArrayList<>();
-        String sql = "SELECT f.*, u.username as owner_name FROM files f " +
-                     "JOIN users u ON f.owner_id = u.user_id " +
-                     "WHERE f.group_id = ? AND f.file_name LIKE ?";
+        String sql = "SELECT f.*, u.username as owner_name, " +
+                    "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                    "FROM files f JOIN users u ON f.owner_id = u.user_id " +
+                    "WHERE f.group_id = ? AND f.file_name LIKE ?";
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, groupId);
             pstmt.setString(2, "%" + keyword + "%");
             try (ResultSet rs = pstmt.executeQuery()) {
