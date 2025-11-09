@@ -13,6 +13,9 @@ public class File {
     private Long groupId;
     private String ownerName;
     private int currentVersion;
+    private boolean isLocked;
+    private Long lockedByUserId;
+    private String lockedByUsername;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -34,4 +37,11 @@ public class File {
     public void setOwnerName(String ownerName) { this.ownerName = ownerName; }
     public int getCurrentVersion() { return currentVersion; }
     public void setCurrentVersion(int currentVersion) { this.currentVersion = currentVersion; }
+    public boolean isLocked() { return isLocked; }
+    public void setLocked(boolean locked) { isLocked = locked; }
+    public Long getLockedByUserId() { return lockedByUserId; }
+    public void setLockedByUserId(Long lockedByUserId) { this.lockedByUserId = lockedByUserId; }
+    public String getLockedByUsername() { return lockedByUsername; }
+    public void setLockedByUsername(String lockedByUsername) { this.lockedByUsername = lockedByUsername; }
+    
 }

@@ -13,7 +13,10 @@ import com.dut.filestorage.utils.DatabaseManager;
 
 public class GroupMemberDAO {
     public void save(GroupMember groupMember) throws SQLException {
-        String sql = "INSERT INTO group_members (role, user_id, group_id) VALUES (?, ?, ?)";
+        
+        // SỬA LỖI: Thêm dấu backtick (`) xung quanh `role`
+        String sql = "INSERT INTO group_members (`role`, user_id, group_id) VALUES (?, ?, ?)";
+        
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, groupMember.getRole());
@@ -47,13 +50,14 @@ public class GroupMemberDAO {
     }
     public List<User> findMembersByGroupId(long groupId) throws SQLException {
         List<User> members = new ArrayList<>();
-        // Sửa câu SQL để lấy thêm cột 'role' từ bảng group_members
-        String sql = "SELECT u.user_id, u.username, gm.role FROM users u " +
-                    "INNER JOIN group_members gm ON u.user_id = gm.user_id " +
-                    "WHERE gm.group_id = ?";
+        
+        // SỬA LỖI: Thêm dấu backtick (`) xung quanh `role`
+        String sql = "SELECT u.user_id, u.username, gm.`role` FROM users u " +
+                     "INNER JOIN group_members gm ON u.user_id = gm.user_id " +
+                     "WHERE gm.group_id = ?";
         
         try (Connection conn = DatabaseManager.getConnection();
-            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+           PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
             pstmt.setLong(1, groupId);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -61,10 +65,7 @@ public class GroupMemberDAO {
                     User user = new User();
                     user.setId(rs.getLong("user_id"));
                     user.setUsername(rs.getString("username"));
-                    
-                    // --- THÊM DÒNG MỚI ---
-                    user.setRoleInGroup(rs.getString("role")); // Lấy role và gán vào đối tượng User
-                    
+                    user.setRoleInGroup(rs.getString("role")); 
                     members.add(user);
                 }
             }

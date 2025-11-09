@@ -7,47 +7,71 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
 <?import javafx.scene.layout.BorderPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="875.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="890.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
    <top>
       <VBox prefHeight="43.0" prefWidth="600.0" BorderPane.alignment="CENTER">
          <children>
-            <ToolBar prefHeight="86.0" prefWidth="904.0">
+            <ToolBar prefHeight="78.0" prefWidth="890.0" style="-fx-background-color: white;">
               <items>
-                <Button fx:id="uploadButton" mnemonicParsing="false" onAction="#onUploadButtonClick" text="Upload" />
-                  <Button fx:id="downloadButton" mnemonicParsing="false" onAction="#onDownloadButtonClick" text="Dowload" />
-                  <Button fx:id="deleteButton" mnemonicParsing="false" onAction="#onDeleteButtonClick" text="Delete" />
-                  <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" text="Share" />
-                  <Button fx:id="newGroupButton" mnemonicParsing="false" onAction="#onNewGroupButtonClick" text="New Group" />
-                  <Button fx:id="inviteButton" mnemonicParsing="false" onAction="#onInviteMemberClick" text="Invite Member" visible="false" />
-                  <Button fx:id="kickButton" mnemonicParsing="false" onAction="#onKickMemberClick" text="Kick Member" visible="false" />
-                  <Button fx:id="viewMembersButton" mnemonicParsing="false" onAction="#onViewMembersClick" text="View Members" visible="false" />
-                  <Button fx:id="backButton" alignment="TOP_LEFT" mnemonicParsing="false" onAction="#onBackButtonClick" text="Back " visible="false" />
-                  <Button mnemonicParsing="false" onAction="#onLogoutAction" text="Log out" />
-                  <Label fx:id="currentUserLabel" maxWidth="100.0" text="Userrrrrrrr">
-                     <padding>
-                        <Insets left="10.0" />
-                     </padding>
-                     <font>
-                        <Font name="System Bold" size="12.0" />
-                     </font>
+                  <ImageView fitHeight="25.0" fitWidth="55.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/logo_black.png" />
+                     </image>
+                  </ImageView>
+                  <Button fx:id="uploadButton" mnemonicParsing="false" onAction="#onUploadButtonClick" style="-fx-font-weight: bold;" text="Upload" />
+                  
+                  <Button fx:id="lockButton" mnemonicParsing="false" onAction="#onLockAndEditClick" style="-fx-font-weight: bold;" text="Lock &amp; Edit" />
+                  
+                  <Button fx:id="unlockButton" mnemonicParsing="false" onAction="#onUnlockButtonClick" style="-fx-font-weight: bold;" text="Unlock" />
+                  
+                  <Button fx:id="deleteButton" mnemonicParsing="false" onAction="#onDeleteButtonClick" style="-fx-font-weight: bold;" text="Delete" />
+                  <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" style="-fx-font-weight: bold;" text="Share" />
+                  <Button fx:id="newGroupButton" mnemonicParsing="false" onAction="#onNewGroupButtonClick" style="-fx-font-weight: bold;" text="New Group" />
+                  <Button fx:id="inviteButton" mnemonicParsing="false" onAction="#onInviteMemberClick" style="-fx-font-weight: bold;" text="Invite Member" visible="false" />
+                  <Button fx:id="kickButton" mnemonicParsing="false" onAction="#onKickMemberClick" style="-fx-font-weight: bold;" text="Kick Member" visible="false" />
+                  <Button fx:id="viewMembersButton" mnemonicParsing="false" onAction="#onViewMembersClick" style="-fx-font-weight: bold;" text="View Members" visible="false" />
+                  <Button fx:id="backButton" alignment="TOP_LEFT" mnemonicParsing="false" onAction="#onBackButtonClick" style="-fx-font-weight: bold;" text="Back " visible="false" />
+                  <Button mnemonicParsing="false" onAction="#onLogoutAction" style="-fx-font-weight: bold;" text="Log out" />
+                  
+                      <Label fx:id="currentUserLabel" maxWidth="100.0" text="Userrrrrrrr">
+                        <padding>
+                           <Insets left="10.0" />
+                        </padding>
+                        <font>
+                           <Font name="Times New Roman Bold" size="15.0" />
+                        </font>
                   </Label>
               </items>
+               <opaqueInsets>
+                  <Insets />
+               </opaqueInsets>
             </ToolBar>
          </children>
       </VBox>
    </top>
    <left>
-      <VBox alignment="CENTER" prefHeight="200.0" prefWidth="100.0" spacing="10.0" BorderPane.alignment="CENTER">
+      <VBox alignment="CENTER" prefHeight="200.0" prefWidth="100.0" spacing="10.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
          <children>
-            <Button mnemonicParsing="false" onAction="#onMyFilesClick" text="My Files" />
-            <Button mnemonicParsing="false" onAction="#onSharedFilesClick" text="Shared Files" />
-            <Button mnemonicParsing="false" onAction="#onMyGroupsClick" text="My Groups" />
+            <Button mnemonicParsing="false" onAction="#onMyFilesClick" text="My Files">
+               <font>
+                  <Font name="System Bold" size="12.0" />
+               </font></Button>
+            <Button mnemonicParsing="false" onAction="#onSharedFilesClick" text="Shared Files">
+               <font>
+                  <Font name="System Bold" size="12.0" />
+               </font></Button>
+            <Button mnemonicParsing="false" onAction="#onMyGroupsClick" text="My Groups">
+               <font>
+                  <Font name="System Bold" size="12.0" />
+               </font></Button>
          </children>
          <BorderPane.margin>
             <Insets />
@@ -58,7 +82,7 @@
       </VBox>
    </left>
    <bottom>
-      <HBox alignment="CENTER" prefHeight="54.0" prefWidth="600.0" BorderPane.alignment="CENTER">
+      <HBox alignment="CENTER" prefHeight="54.0" prefWidth="600.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
          <padding>
             <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
          </padding>
@@ -70,20 +94,29 @@
    <center>
       <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
          <children>
-            <Pane>
+            <Pane prefHeight="37.0" prefWidth="790.0" style="-fx-background-color: white;">
                <children>
                   <TextField fx:id="searchField" layoutY="5.0" prefHeight="26.0" prefWidth="205.0" promptText="Search files by name..." />
-                  <Button layoutX="212.0" layoutY="6.0" mnemonicParsing="false" onAction="#onSearchAction" text="Search" />
-                  <Button fx:id="accessLinkButton" layoutX="685.0" layoutY="6.0" mnemonicParsing="false" onAction="#onAccessLinkClick" text="Access Link" />
-                  <Button layoutX="624.0" layoutY="6.0" mnemonicParsing="false" onAction="#onHistoryButtonClick" text="History" />
+                  <Button layoutX="212.0" layoutY="6.0" mnemonicParsing="false" onAction="#onSearchAction" text="Search">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font></Button>
+                  <Button fx:id="accessLinkButton" layoutX="624.0" layoutY="6.0" mnemonicParsing="false" onAction="#onAccessLinkClick" text="Access Link">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font></Button>
+                  <Button layoutX="557.0" layoutY="6.0" mnemonicParsing="false" onAction="#onHistoryButtonClick" text="History">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font></Button>
                </children>
             </Pane>
             <TableView fx:id="mainTableView" prefHeight="283.0" prefWidth="775.0" VBox.vgrow="ALWAYS">
-               <columns>
-                  <TableColumn fx:id="nameColumn" prefWidth="208.79999542236328" text="Name" />
-                  <TableColumn fx:id="sizeColumn" prefWidth="227.19998168945312" text="Size (bytes)" />
+              <columns>
+                <TableColumn fx:id="nameColumn" prefWidth="208.79999542236328" text="Name" />
+                <TableColumn fx:id="sizeColumn" prefWidth="227.19998168945312" text="Size (bytes)" />
                   <TableColumn fx:id="dateModifiedColumn" minWidth="0.0" prefWidth="369.5999755859375" text="Last Modified" />
-               </columns>
+              </columns>
             </TableView>
          </children>
       </VBox>

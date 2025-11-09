@@ -10,7 +10,7 @@
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.text.Font?>
 
-<ScrollPane fitToWidth="true" prefViewportHeight="461.0" prefViewportWidth="844.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.HomepageController">
+<ScrollPane fx:id="scrollPane" fitToWidth="true" prefViewportHeight="461.0" prefViewportWidth="844.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.HomepageController">
    <content>
       <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="2176.0" prefWidth="844.0" style="-fx-background-color: black;" stylesheets="@style.css">
          <children>
@@ -72,21 +72,13 @@
                   </ImageView>
                </graphic>
             </Button>
-            <ImageView fitHeight="430.0" fitWidth="411.0" layoutX="37.0" layoutY="556.0" pickOnBounds="true" preserveRatio="true">
-               <image>
-                  <Image url="@images/student.jpg" />
-               </image>
-            </ImageView>
-            <ImageView fitHeight="430.0" fitWidth="411.0" layoutX="389.0" layoutY="1058.0" pickOnBounds="true" preserveRatio="true">
-               <image>
-                  <Image url="@images/worker.jpg" />
-               </image>
-            </ImageView>
-            <ImageView fitHeight="430.0" fitWidth="411.0" layoutX="37.0" layoutY="1553.0" pickOnBounds="true" preserveRatio="true">
-               <image>
-                  <Image url="@images/memories.jpg" />
-               </image>
-            </ImageView>
+            
+            <ImageView fx:id="studentImg" cache="true" fitHeight="430.0" fitWidth="411.0" layoutX="37.0" layoutY="556.0" pickOnBounds="true" preserveRatio="true" />
+            
+            <ImageView fx:id="workerImg" cache="true" fitHeight="430.0" fitWidth="411.0" layoutX="389.0" layoutY="1058.0" pickOnBounds="true" preserveRatio="true" />
+            
+            <ImageView fx:id="memoriesImg" cache="true" fitHeight="430.0" fitWidth="411.0" layoutX="37.0" layoutY="1553.0" pickOnBounds="true" preserveRatio="true" />
+            
             <Label layoutX="514.0" layoutY="699.0" prefHeight="99.0" prefWidth="230.0" text="For Students" textFill="WHITE" wrapText="true">
                <font>
                   <Font name="Times New Roman Bold" size="36.0" />

@@ -37,3 +37,9 @@
 .logo-button:hover {
     -fx-opacity: 1.0; /* Rõ nét hoàn toàn khi di chuột vào */
 }
+
+.homepage-background {
+    -fx-background-image: url("images/homepage.jpg");
+    -fx-background-size: cover; /* Đây là thuộc tính quan trọng nhất */
+    -fx-background-position: center center;
+}

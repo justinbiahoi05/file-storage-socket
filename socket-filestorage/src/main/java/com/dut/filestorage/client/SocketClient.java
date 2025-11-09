@@ -68,16 +68,14 @@ public class SocketClient {
             String response = sendSingleLineCommand("LOGIN " + username + " " + password);
             
             if (response != null && response.startsWith("200 OK")) {
-                // Đăng nhập thành công, tạo một đối tượng User để trả về
                 User user = new User();
                 user.setUsername(username);
                 return user;
             }
-            // Nếu không thành công, trả về null
             return null;
         } catch (IOException e) {
             System.err.println("Login failed due to network error: " + e.getMessage());
-            return null; // Trả về null nếu có lỗi mạng
+            return null;
         }
     }
 
@@ -86,51 +84,30 @@ public class SocketClient {
     }
 
     // === Module File & Listing ===
-   public List<File> listFiles() {
-        try {
-            if (socket == null || socket.isClosed()) return new ArrayList<>();
-            return parseFileList(sendMultiLineCommand("LS"));
-        } catch (IOException e) {
-            System.err.println("listFiles failed due to network error: " + e.getMessage());
-            return new ArrayList<>(); // Trả về danh sách rỗng nếu lỗi
-        }
+    public List<File> listFiles() throws IOException {
+        return parseFileList(sendMultiLineCommand("LS"));
     }
 
     public List<File> listSharedFiles() throws IOException {
-        try{
-            return parseFileList(sendMultiLineCommand("LS --shared"));
-        } catch (IOException e) {
-            System.err.println("listSharedFiles failed due to network error: " + e.getMessage());
-            return new ArrayList<>(); // Trả về danh sách rỗng nếu lỗi
-        }
+        return parseFileList(sendMultiLineCommand("LS --shared"));
     }
 
     public List<File> listGroupFiles(long groupId) throws IOException {
-        try{
-            return parseFileList(sendMultiLineCommand("LS " + groupId));
-        } catch (IOException e) {
-            System.err.println("listGroupFiles failed due to network error: " + e.getMessage());
-            return new ArrayList<>(); // Trả về danh sách rỗng nếu lỗi
-        }
+        return parseFileList(sendMultiLineCommand("LS " + groupId));
     }
 
     // === Module Upload / Download ===
-    public String uploadFile(java.io.File localFile, Long groupId, int baseVersion, String notes) throws IOException {
+    
+    // --- HÀM ĐÃ SỬA: Bỏ baseVersion ---
+    public String uploadFile(java.io.File localFile, Long groupId, String notes) throws IOException {
         String fileName = localFile.getName();
         long fileSize = localFile.length();
         String fileType = "application/octet-stream";
-        
-        // Đặt ghi chú trong ngoặc kép
         String notesToSend = (notes == null || notes.trim().isEmpty()) ? "null" : "\"" + notes + "\"";
 
-        // Đặt TÊN FILE trong ngoặc kép
-        String metadataCommand = String.format("UPLOAD \"%s\" %d %s %d %s",
-                fileName,
-                fileSize,
-                fileType,
-                baseVersion,
-                notesToSend
-        );
+        // Gửi 4 tham số: name, size, type, notes
+        String metadataCommand = String.format("UPLOAD \"%s\" %d %s %s",
+                fileName, fileSize, fileType, notesToSend);
 
         if (groupId != null) {
             metadataCommand += " --group " + groupId;
@@ -142,7 +119,6 @@ public class SocketClient {
             return "Server rejected upload: " + (serverResponse != null ? serverResponse : "No response");
         }
 
-        // Bắt đầu gửi file
         try (FileInputStream fis = new FileInputStream(localFile)) {
             OutputStream socketOutputStream = socket.getOutputStream();
             byte[] buffer = new byte[8192];
@@ -153,21 +129,30 @@ public class SocketClient {
             socketOutputStream.flush();
         }
 
-        // Nhận phản hồi cuối cùng
         return in.readLine();
     }
 
-    public String downloadFile(long fileId, String saveDirectoryPath) throws IOException {
-        out.println("DOWNLOAD " + fileId);
+    // --- HÀM MỚI: lockAndDownload ---
+    public String lockAndDownload(long fileId, String saveDirectoryPath) throws IOException {
+        out.println("LOCK_DOWNLOAD " + fileId);
         String serverResponse = in.readLine();
 
         if (serverResponse == null || !serverResponse.startsWith("201 INFO")) {
             return "Server error: " + (serverResponse != null ? serverResponse : "No response");
         }
         
-        String[] infoParts = serverResponse.split(" ");
-        String fileName = infoParts[2];
-        long fileSize = Long.parseLong(infoParts[3]);
+        // Tách chuỗi cẩn thận hơn
+        Matcher m = Pattern.compile("201 INFO \"(.*?)\" (\\d+)").matcher(serverResponse);
+        if (!m.find()) {
+             // Thử lại với tên file không có khoảng trắng
+             m = Pattern.compile("201 INFO (.*?) (\\d+)").matcher(serverResponse);
+             if (!m.find() || m.groupCount() < 2) {
+                 return "500 ERROR: Client could not parse server response: " + serverResponse;
+             }
+        }
+        String fileName = m.group(1);
+        long fileSize = Long.parseLong(m.group(2));
+
 
         out.println("CLIENT_READY");
         
@@ -193,8 +178,28 @@ public class SocketClient {
         }
     }
 
+    // --- HÀM MỚI: lockFile ---
+    public String lockFile(long fileId) throws IOException {
+        return sendSingleLineCommand("LOCK " + fileId);
+    }
+    
+    // --- HÀM MỚI: unlockFile ---
+    public String unlockFile(long fileId) throws IOException {
+        return sendSingleLineCommand("UNLOCK " + fileId);
+    }
+    
+    // --- HÀM MỚI: delete (để đồng bộ với MainViewController) ---
+    public String delete(String type, long id) throws IOException {
+        return sendSingleLineCommand("DELETE " + type + " " + id);
+    }
+    
+    // --- HÀM CŨ: (Giờ chỉ để backup) ---
     public String deleteFile(long fileId) throws IOException {
-        return sendSingleLineCommand("DELETE " + fileId);
+        return delete("file", fileId);
+    }
+
+    public String deleteGroup(long groupId) throws IOException {
+        return delete("group", groupId);
     }
     
     // === Module Collaboration ===
@@ -207,7 +212,6 @@ public class SocketClient {
         List<Group> groups = new ArrayList<>();
         if (!responseLines.isEmpty() && responseLines.get(0).startsWith("200 OK")) {
             for (int i = 1; i < responseLines.size(); i++) {
-                // Phân tích chuỗi "ID: 1 | Name: NhomPBL4"
                 try {
                     String line = responseLines.get(i);
                     String[] parts = line.split("\\|");
@@ -234,16 +238,15 @@ public class SocketClient {
                     String line = responseLines.get(i);
                     String[] parts = line.split("\\|");
                     
-                    // Giờ chuỗi có 3 phần
                     if (parts.length >= 3) {
                         long id = Long.parseLong(parts[0].split(":")[1].trim());
                         String username = parts[1].split(":")[1].trim();
-                        String role = parts[2].split(":")[1].trim(); // Lấy role
+                        String role = parts[2].split(":")[1].trim();
                         
                         User user = new User();
                         user.setId(id);
                         user.setUsername(username);
-                        user.setRoleInGroup(role); // Gán role
+                        user.setRoleInGroup(role);
                         
                         users.add(user);
                     }
@@ -256,18 +259,16 @@ public class SocketClient {
     }
     
     public List<File> searchMyFiles(String keyword) throws IOException {
-        return parseFileList(sendMultiLineCommand("SEARCH --my-files " + keyword));
+         return parseFileList(sendMultiLineCommand("SEARCH --my-files \"" + keyword + "\""));
     }
-
     public List<File> searchSharedFiles(String keyword) throws IOException {
-        return parseFileList(sendMultiLineCommand("SEARCH --shared " + keyword));
+         return parseFileList(sendMultiLineCommand("SEARCH --shared \"" + keyword + "\""));
     }
-
     public List<File> searchGroupFiles(long groupId, String keyword) throws IOException {
-        return parseFileList(sendMultiLineCommand("SEARCH --group " + groupId + " " + keyword));
+         return parseFileList(sendMultiLineCommand("SEARCH --group " + groupId + " \"" + keyword + "\""));
     }
     public String createGroup(String groupName) throws IOException {
-        return sendSingleLineCommand("GROUP_CREATE " + groupName);
+         return sendSingleLineCommand("GROUP_CREATE \"" + groupName + "\"");
     }
     
     public String inviteToGroup(long groupId, String username) throws IOException {
@@ -276,10 +277,6 @@ public class SocketClient {
     
     public String kickFromGroup(long groupId, String username) throws IOException {
         return sendSingleLineCommand("GROUP_KICK " + groupId + " " + username);
-    }
-
-    public String deleteGroup(long groupId) throws IOException {
-        return sendSingleLineCommand("GROUP_DELETE " + groupId);
     }
 
     public String createPublicLink(long fileId, String password, String expiresIn) throws IOException {
@@ -292,8 +289,8 @@ public class SocketClient {
         }
         return sendSingleLineCommand(command);
     }
+    
     public String downloadFileByToken(String token, String password, String saveDirectoryPath) throws IOException {
-        // Xây dựng lệnh, gửi cả mật khẩu dù nó là chuỗi rỗng
         String command = "ACCESS_LINK " + token + " " + password;
         out.println(command);
         
@@ -303,9 +300,16 @@ public class SocketClient {
             return "Server error: " + (serverResponse != null ? serverResponse : "No response");
         }
         
-        String[] infoParts = serverResponse.split(" ");
-        String fileName = infoParts[2];
-        long fileSize = Long.parseLong(infoParts[3]);
+        Matcher m = Pattern.compile("201 INFO \"(.*?)\" (\\d+)").matcher(serverResponse);
+         if (!m.find()) {
+              m = Pattern.compile("201 INFO (.*?) (\\d+)").matcher(serverResponse);
+              if (!m.find() || m.groupCount() < 2) {
+                  return "500 ERROR: Client could not parse server response: " + serverResponse;
+              }
+         }
+        String fileName = m.group(1);
+        long fileSize = Long.parseLong(m.group(2));
+
 
         out.println("CLIENT_READY");
         
@@ -340,7 +344,6 @@ public class SocketClient {
             return versions;
         }
         
-        // Regex mới để hiểu chuỗi 4 phần (sau khi đã tách versionId)
         String regex = "v(\\d+)\\s*\\|\\s*Uploader:\\s*(.*?)\\s*\\|\\s*Date:\\s*(.*?)\\s*\\|\\s*Notes:\\s*(.*)";
         Pattern pattern = Pattern.compile(regex);
 
@@ -348,7 +351,7 @@ public class SocketClient {
             String line = responseLines.get(i);
             
             String[] idAndContent = line.split("!", 2);
-            if (idAndContent.length < 2) continue; // Bỏ qua dòng lỗi
+            if (idAndContent.length < 2) continue;
 
             long versionId = Long.parseLong(idAndContent[0]);
             String content = idAndContent[1];
@@ -359,14 +362,13 @@ public class SocketClient {
                 try {
                     FileVersion version = new FileVersion();
                     
-                    version.setVersionId(versionId); // Gán versionId
+                    version.setVersionId(versionId);
                     version.setVersionNumber(Integer.parseInt(matcher.group(1).trim()));
                     version.setUploaderName(matcher.group(2).trim());
                     
                     String dateStr = matcher.group(3).trim();
                     String notesStr = matcher.group(4).trim();
                     
-                    // Gộp Date và Notes để hiển thị trong 1 cột cho tiện
                     version.setNotes(dateStr + " | " + notesStr); 
                     
                     versions.add(version);
@@ -384,61 +386,62 @@ public class SocketClient {
         return sendSingleLineCommand("RESTORE " + versionId);
     }
 
-    public int findLatestVersion(String fileName, Long groupId) throws IOException {
-        String command = "GET_VERSION " + fileName;
-        if (groupId != null) {
-            command += " --group " + groupId;
-        }
-        String response = sendSingleLineCommand(command);
-        if (response != null && response.startsWith("200 OK")) {
-            return Integer.parseInt(response.split(" ")[2]);
-        }
-        return 0; // Trả về 0 nếu có lỗi
-    }
+    // --- HÀM ĐÃ XÓA ---
+    // public int findLatestVersion(...) { ... }
 
     // --- HÀM TIỆN ÍCH VÀ DỌN DẸP ---
 
+    // --- HÀM ĐÃ SỬA: Cập nhật Regex để parse 7 cột (thêm "Locked By") ---
     private List<File> parseFileList(List<String> responseLines) {
         List<File> files = new ArrayList<>();
         if (responseLines.isEmpty() || !responseLines.get(0).startsWith("200 OK")) {
             return files;
         }
-        
-        // Regex vẫn giữ nguyên
-        String regex = "ID:\\s*(\\d+)\\s*\\|\\s*Name:\\s*(.*?)\\s*\\|\\s*Size:\\s*(\\d+)\\s*\\|\\s*Owner:\\s*(.*?)\\s*\\|\\s*Last Modified:\\s*(.*?)\\s*\\|\\s*Version:\\s*(\\d+)";
+
+        // Regex này mong đợi 7 phần, đúng với format mới nhất của server
+         String regex = "(\\d+)\\s*\\|\\s*(.*?)\\s*\\|\\s*(\\d+)\\s*\\|\\s*(.*?)\\s*\\|\\s*(.*?)\\s*\\|\\s*(\\d+)\\s*\\|\\s*(.*)";
         Pattern pattern = Pattern.compile(regex);
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+        // Bắt đầu lặp từ dòng 1 để bỏ qua header
         for (int i = 1; i < responseLines.size(); i++) {
             String line = responseLines.get(i);
-            Matcher matcher = pattern.matcher(line);
+            // Bỏ qua các dòng gạch ngang trang trí và dòng tiêu đề
+            if (line.trim().startsWith("---") || line.trim().startsWith("ID")) continue;
 
+            Matcher matcher = pattern.matcher(line.trim());
             if (matcher.find()) {
                 try {
-                    long id = Long.parseLong(matcher.group(1));
-                    String name = matcher.group(2).trim();
-                    long size = Long.parseLong(matcher.group(3));
-                    String ownerName = matcher.group(4).trim();
-                    String dateStr = matcher.group(5).trim();
-                    int version = Integer.parseInt(matcher.group(6));
-
                     File file = new File();
-                    file.setId(id);
-                    file.setFileName(name);
-                    file.setFileSize(size);
-                    file.setOwnerName(ownerName);
-                    file.setCurrentVersion(version);
+                    file.setId(Long.parseLong(matcher.group(1).trim()));
+                    file.setFileName(matcher.group(2).trim());
+                    file.setFileSize(Long.parseLong(matcher.group(3).trim()));
+                    file.setOwnerName(matcher.group(4).trim());
                     
+                    String dateStr = matcher.group(5).trim();
                     if (!"N/A".equals(dateStr)) {
-                        file.setUploadDate(LocalDateTime.parse(dateStr, formatter)); 
+                        file.setUploadDate(LocalDateTime.parse(dateStr, formatter));
                     }
+                    
+                    file.setCurrentVersion(Integer.parseInt(matcher.group(6).trim()));
+                    
+                    String lockedBy = matcher.group(7).trim();
+                    if (!"-".equals(lockedBy) && !lockedBy.isEmpty()) {
+                        file.setLocked(true);
+                        file.setLockedByUsername(lockedBy);
+                    } else {
+                        file.setLocked(false);
+                    }
+                    
                     files.add(file);
                 } catch (Exception e) {
                     System.err.println("Error parsing matched line: '" + line + "'");
                     e.printStackTrace();
                 }
             } else {
-                System.err.println("Could not parse file list line (no regex match): '" + line + "'");
+                if (!line.trim().isEmpty()) {
+                     System.err.println("Could not parse file list line (no regex match): '" + line + "'");
+                }
             }
         }
         return files;

@@ -11,31 +11,37 @@ import com.dut.filestorage.model.entity.FileVersion;
 import com.dut.filestorage.utils.DatabaseManager;
 
 public class FileVersionDAO {
+    // --- HÀM CŨ (DÙNG CHO TRƯỜNG HỢP KHÔNG CẦN TRANSACTION) ---
     public void save(FileVersion version) throws SQLException {
         String sql = "INSERT INTO file_versions (file_id, version_number, stored_path, uploader_id, notes) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
             pstmt.setLong(1, version.getFileId());
             pstmt.setInt(2, version.getVersionNumber());
             pstmt.setString(3, version.getStoredPath());
             pstmt.setLong(4, version.getUploaderId());
             pstmt.setString(5, version.getNotes());
+            
             pstmt.executeUpdate();
         }
     }
 
-    public int findLatestVersionNumber(long fileId) throws SQLException {
-        String sql = "SELECT MAX(version_number) FROM file_versions WHERE file_id = ?";
-        try (Connection conn = DatabaseManager.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setLong(1, fileId);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getInt(1);
-                }
-            }
+
+    // --- HÀM MỚI (DÙNG RIÊNG CHO TRANSACTION TRONG FileSystemService) ---
+    public void save(Connection conn, FileVersion version) throws SQLException {
+        // Logic y hệt hàm trên, nhưng dùng `conn` được truyền vào
+        String sql = "INSERT INTO file_versions (file_id, version_number, stored_path, uploader_id, notes) VALUES (?, ?, ?, ?, ?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setLong(1, version.getFileId());
+            pstmt.setInt(2, version.getVersionNumber());
+            pstmt.setString(3, version.getStoredPath());
+            pstmt.setLong(4, version.getUploaderId());
+            pstmt.setString(5, version.getNotes());
+            
+            pstmt.executeUpdate();
         }
-        return 0; // Trả về 0 nếu chưa có phiên bản nào
     }
     
     public List<FileVersion> findByFileId(long fileId) throws SQLException {
@@ -87,5 +93,37 @@ public class FileVersionDAO {
             }
         }
         return null;
+    }
+
+    public int findLatestVersionNumber(long fileId) throws SQLException {
+        String sql = "SELECT MAX(version_number) FROM file_versions WHERE file_id = ?";
+        try (Connection conn = DatabaseManager.getConnection();
+            PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setLong(1, fileId);
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                // Nếu tìm thấy kết quả (ngay cả khi là 0)
+                if (rs.next()) {
+                    // getInt(1) sẽ trả về 0 nếu không có phiên bản nào được tìm thấy (giá trị MAX của một tập rỗng là NULL, getInt(NULL) = 0)
+                    return rs.getInt(1);
+                }
+            }
+        }
+        // Trả về 0 nếu có lỗi xảy ra
+        return 0;
+    }
+
+     public int findLatestVersionNumber(Connection conn, long fileId) throws SQLException {
+        String sql = "SELECT MAX(version_number) FROM file_versions WHERE file_id = ?";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, fileId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1);
+                }
+            }
+        }
+        return 0;
     }
 }

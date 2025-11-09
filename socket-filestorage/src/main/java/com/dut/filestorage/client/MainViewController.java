@@ -3,7 +3,6 @@ package com.dut.filestorage.client;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,7 +22,6 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
@@ -48,13 +46,11 @@ public class MainViewController {
     private long currentGroupId = -1;
 
     // --- Buttons ---
-    @FXML private Button myFilesButton;
-    @FXML private Button sharedFilesButton;
-    @FXML private Button myGroupsButton;
     @FXML private Button inviteButton;
     @FXML private Button kickButton;
     @FXML private Button backButton;
-    @FXML private Button accessLinkButton;
+    @FXML private Button lockButton; // (Giả sử đây là nút onLockAndEditClick)
+    @FXML private Button unlockButton; // (Nút onUnlockButtonClick)
     
     // --- Class Members ---
     private SocketClient socketClient;
@@ -78,7 +74,7 @@ public class MainViewController {
         if (currentUser != null) {
             currentUserLabel.setText(currentUser.getUsername());
         } else {
-            currentUserLabel.setText("Welcome, Guest!"); // Phòng trường hợp lỗi
+            currentUserLabel.setText("Welcome, Guest!");
         }
 
         onMyFilesClick();
@@ -233,112 +229,188 @@ public class MainViewController {
         java.io.File selectedFile = fileChooser.showOpenDialog(mainTableView.getScene().getWindow());
 
         if (selectedFile != null) {
-            new Thread(() -> {
-                try {
-                    List<Group> userGroups = socketClient.listGroups();
-                    List<String> choices = new ArrayList<>();
-                    choices.add("My Files (Personal)");
-                    userGroups.forEach(group -> choices.add("Group: " + group.getGroupName()));
-
-                    Platform.runLater(() -> {
-                        ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
-                        dialog.setTitle("Upload Destination");
-                        dialog.setHeaderText("Choose where to upload '" + selectedFile.getName() + "'");
-                        dialog.setContentText("Upload to:");
-
-                        Optional<String> result = dialog.showAndWait();
-                        result.ifPresent(destination -> {
-                            Long targetGroupId = null;
-                            if (destination.startsWith("Group: ")) {
-                                String groupName = destination.substring(7);
-                                targetGroupId = userGroups.stream()
-                                        .filter(g -> g.getGroupName().equals(groupName))
-                                        .findFirst()
-                                        .map(Group::getGroupId)
-                                        .orElse(null);
-                            }
-                            uploadFileThread(selectedFile, targetGroupId);
-                        });
-                    });
-                } catch (Exception e) {
-                    Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "Could not fetch group list: " + e.getMessage()));
-                }
-            }).start();
+            // Xác định groupId đích (nếu đang ở view group)
+            Long targetGroupId = (currentView == CurrentView.GROUP_FILES) ? currentGroupId : null;
+            
+            // Gọi hàm xử lý upload
+            uploadFileThread(selectedFile, targetGroupId);
         }
     }
 
+    // Đây là logic "Lock-on-demand" (Khóa khi cần) MỚI của bạn
     private void uploadFileThread(java.io.File fileToUpload, Long groupId) {
         statusLabel.setText("Preparing to upload " + fileToUpload.getName() + "...");
+
+        // --- BƯỚC 1: XÁC ĐỊNH isUpdate VÀ fileIdToLock TRƯỚC KHI TẠO LUỒNG ---
+        final boolean[] isUpdateArr = {false};
+        final long[] fileIdToLockArr = {-1};
         
         new Thread(() -> {
             try {
-                // --- BƯỚC 1 (MỚI): HỎI SERVER ĐỂ LẤY BASE VERSION ---
-                int baseVersion = socketClient.findLatestVersion(fileToUpload.getName(), groupId);
-                System.out.println("DEBUG: Server reported baseVersion is: " + baseVersion);
+                // Xác định danh sách nguồn (cá nhân hay nhóm)
+                List<File> sourceList;
+                if (groupId != null) {
+                    sourceList = socketClient.listGroupFiles(groupId);
+                } else {
+                    sourceList = socketClient.listFiles();
+                }
 
-                // --- BƯỚC 2: HỎI NGƯỜI DÙNG NOTES (như cũ) ---
-                // Phải thực hiện trên luồng JavaFX
+                // Tìm file trùng tên
+                for (File f : sourceList) {
+                    if (f.getFileName().equals(fileToUpload.getName())) {
+                        isUpdateArr[0] = true;
+                        fileIdToLockArr[0] = f.getId();
+                        break;
+                    }
+                }
+                
+                // --- BƯỚC 2: SAU KHI ĐÃ CÓ KẾT QUẢ, GỌI MỘT HÀM XỬ LÝ TIẾP THEO ---
                 Platform.runLater(() -> {
-                    TextInputDialog notesDialog = new TextInputDialog("Updated content.");
-                    notesDialog.setTitle("Version Notes");
-                    notesDialog.setHeaderText("Enter notes for this version of '" + fileToUpload.getName() + "'");
-                    notesDialog.setContentText("Notes:");
-                    Optional<String> notesResult = notesDialog.showAndWait();
-                    String notes = notesResult.orElse("");
-
-                    // --- BƯỚC 3: BẮT ĐẦU LUỒNG UPLOAD VỚI BASE VERSION ĐÚNG ---
-                    statusLabel.setText("Uploading " + fileToUpload.getName() + "...");
-                    new Thread(() -> {
-                        try {
-                            String response = socketClient.uploadFile(fileToUpload, groupId, baseVersion, notes);
-                            Platform.runLater(() -> {
-                                showAlert(AlertType.INFORMATION, "Upload Status", response);
-                                if (response != null && response.startsWith("202- OK")) {
-                                    if (groupId != null) {
-                                        loadGroupFilesView(groupId);
-                                    } else {
-                                        onMyFilesClick();
-                                    }
-                                }
-                            });
-                        } catch (IOException e) {
-                            Platform.runLater(() -> showAlert(AlertType.ERROR, "Upload Error", "Upload failed: " + e.getMessage()));
-                        }
-                    }).start();
+                    continueUploadProcess(fileToUpload, groupId, isUpdateArr[0], fileIdToLockArr[0]);
                 });
 
             } catch (IOException e) {
-                Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Could not get file info from server: " + e.getMessage()));
+                Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Could not get file info: " + e.getMessage()));
             }
         }).start();
     }
 
+    private void continueUploadProcess(java.io.File fileToUpload, Long groupId, boolean isUpdate, long fileIdToLock) {
+        // Hỏi ghi chú
+        TextInputDialog notesDialog = new TextInputDialog(isUpdate ? "Updated content" : "First version");
+        notesDialog.setTitle("Version Notes");
+        notesDialog.setHeaderText("Enter notes for '" + fileToUpload.getName() + "'");
+        notesDialog.setContentText("Notes:");
+        Optional<String> notesResult = notesDialog.showAndWait();
+
+        if (notesResult.isEmpty()) {
+            statusLabel.setText("Upload canceled.");
+            return;
+        }
+        String notes = notesResult.get();
+
+        // BẮT ĐẦU LUỒNG UPLOAD CUỐI CÙNG
+        statusLabel.setText("Uploading " + fileToUpload.getName() + "...");
+        new Thread(() -> {
+            try {
+                // Nếu là cập nhật, thử khóa file NGAY BÂY GIỜ
+                if (isUpdate) {
+                    String lockResponse = socketClient.lockFile(fileIdToLock);
+                    if (lockResponse == null || !lockResponse.startsWith("200 OK")) {
+                        final String errorMsg = lockResponse != null ? lockResponse : "Failed to lock file.";
+                        Platform.runLater(() -> showAlert(AlertType.ERROR, "Lock Failed", errorMsg + "\nUpload canceled."));
+                        return; // Dừng lại nếu không khóa được
+                    }
+                }
+
+                // Thực hiện upload (đã bỏ baseVersion)
+                String uploadResponse = socketClient.uploadFile(fileToUpload, groupId, notes);
+                
+                // Server sẽ tự động mở khóa sau khi upload thành công
+                
+                Platform.runLater(() -> {
+                    showAlert(AlertType.INFORMATION, "Upload Status", uploadResponse);
+                    if (uploadResponse != null && uploadResponse.startsWith("202 OK")) {
+                        refreshCurrentView();
+                    }
+                });
+
+            } catch (IOException e) {
+                Platform.runLater(() -> showAlert(AlertType.ERROR, "Upload Error", "An error occurred: " + e.getMessage()));
+            }
+        }).start();
+    }
+
+    /**
+     * Nút này giờ là "Lock & Edit".
+     */
     @FXML
-    protected void onDownloadButtonClick() {
+    protected void onLockAndEditClick() {
         Object selectedItem = mainTableView.getSelectionModel().getSelectedItem();
         if (selectedItem == null || !(selectedItem instanceof File)) {
-            showAlert(AlertType.WARNING, "Selection Error", "Please select a file to download.");
+            showAlert(AlertType.WARNING, "Selection Error", "Please select a file to lock and edit.");
             return;
         }
 
         File selectedFile = (File) selectedItem;
+
+        if (selectedFile.isLocked()) {
+             String currentUser = SocketClientSingleton.getInstance().getCurrentUser().getUsername();
+             if (selectedFile.getLockedByUsername() != null && !selectedFile.getLockedByUsername().equals(currentUser)) {
+                 showAlert(AlertType.ERROR, "File Locked", "This file is already locked by " + selectedFile.getLockedByUsername() + ".");
+                 return;
+             }
+        }
+
         DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setTitle("Select Save Location");
+        directoryChooser.setTitle("Select Save Location for Editing");
         java.io.File saveDirectory = directoryChooser.showDialog(mainTableView.getScene().getWindow());
 
         if (saveDirectory != null) {
-            statusLabel.setText("Downloading " + selectedFile.getFileName() + "...");
+            statusLabel.setText("Locking and downloading " + selectedFile.getFileName() + "...");
             new Thread(() -> {
                 try {
-                    String response = socketClient.downloadFile(selectedFile.getId(), saveDirectory.getAbsolutePath());
-                    Platform.runLater(() -> showAlert(AlertType.INFORMATION, "Download Status", response));
+                    String response = socketClient.lockAndDownload(selectedFile.getId(), saveDirectory.getAbsolutePath());
+                    
+                    Platform.runLater(() -> {
+                        showAlert(AlertType.INFORMATION, "Lock and Download Status", response);
+                        if(response.startsWith("200 OK")) {
+                            refreshCurrentView();
+                        }
+                    });
                 } catch (IOException e) {
-                    Platform.runLater(() -> showAlert(AlertType.ERROR, "Download Error", "Download failed."));
+                    Platform.runLater(() -> showAlert(AlertType.ERROR, "Lock Error", "Lock and download failed: " + e.getMessage()));
                 }
             }).start();
         }
     }
 
+    /**
+     * HÀM MỚI: Xử lý việc mở khóa file.
+     */
+    @FXML
+    protected void onUnlockButtonClick() {
+        Object selectedItem = mainTableView.getSelectionModel().getSelectedItem();
+        if (selectedItem == null || !(selectedItem instanceof File)) {
+            showAlert(AlertType.WARNING, "Selection Error", "Please select a file to unlock.");
+            return;
+        }
+        File selectedFile = (File) selectedItem;
+
+        if (!selectedFile.isLocked()) {
+            showAlert(AlertType.INFORMATION, "File Not Locked", "This file is not currently locked.");
+            return;
+        }
+
+        String currentUsername = SocketClientSingleton.getInstance().getCurrentUser().getUsername();
+        if (selectedFile.getLockedByUsername() == null || !selectedFile.getLockedByUsername().equals(currentUsername)) {
+            showAlert(AlertType.ERROR, "Permission Denied", "You cannot unlock a file locked by another user (" + selectedFile.getLockedByUsername() + ").");
+            return;
+        }
+
+        if (confirmAction("Confirm Unlock", "Are you sure you want to cancel editing and unlock '" + selectedFile.getFileName() + "'?")) {
+            statusLabel.setText("Unlocking file...");
+            
+            new Thread(() -> {
+                try {
+                    String response = socketClient.unlockFile(selectedFile.getId());
+                    
+                    Platform.runLater(() -> {
+                        showAlert(AlertType.INFORMATION, "Unlock Status", response);
+                        if (response != null && response.startsWith("200 OK")) {
+                            refreshCurrentView();
+                        }
+                    });
+                } catch (IOException e) {
+                    Platform.runLater(() -> showAlert(AlertType.ERROR, "Unlock Error", "Action failed: " + e.getMessage()));
+                }
+            }).start();
+        }
+    }
+
+    /**
+     * HÀM ĐÃ SỬA: Gọi đúng hàm trong SocketClient
+     */
     @FXML
     protected void onDeleteButtonClick() {
         Object selectedItem = mainTableView.getSelectionModel().getSelectedItem();
@@ -362,23 +434,25 @@ public class MainViewController {
             final long finalItemId = itemId;
             final Object finalSelectedItem = selectedItem;
 
-            new Thread(() -> {
-                try {
-                    String response = "";
-                    if (finalSelectedItem instanceof File) {
-                        response = socketClient.deleteFile(finalItemId);
-                    } else if (finalSelectedItem instanceof Group) {
-                        response = socketClient.deleteGroup(finalItemId);
-                    }
-                    final String finalResponse = response;
-                    Platform.runLater(() -> {
-                        showAlert(AlertType.INFORMATION, "Delete Status", finalResponse);
-                        refreshCurrentView();
-                    });
-                } catch (IOException e) {
-                     Platform.runLater(() -> showAlert(AlertType.ERROR, "Delete Error", "Action failed."));
-                }
-            }).start();
+             new Thread(() -> {
+                 try {
+                     String response = "";
+                     if (finalSelectedItem instanceof File) {
+                         // SỬA LỖI: Gọi hàm delete
+                         response = socketClient.delete("file", finalItemId);
+                     } else if (finalSelectedItem instanceof Group) {
+                         // SỬA LỖI: Gọi hàm delete
+                         response = socketClient.delete("group", finalItemId);
+                     }
+                     final String finalResponse = response;
+                     Platform.runLater(() -> {
+                         showAlert(AlertType.INFORMATION, "Delete Status", finalResponse);
+                         refreshCurrentView();
+                     });
+                 } catch (IOException e) {
+                     Platform.runLater(() -> showAlert(AlertType.ERROR, "Delete Error", "Action failed: " + e.getMessage()));
+                 }
+             }).start();
         }
     }
 
@@ -399,7 +473,9 @@ public class MainViewController {
                             showAlert(AlertType.INFORMATION, "Group Creation", response);
                             if (response.startsWith("200 OK")) refreshCurrentView();
                         });
-                    } catch (IOException e) { /* ... */ }
+                    } catch (IOException e) { 
+                        Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Action failed: " + e.getMessage()));
+                    }
                 }).start();
             }
         });
@@ -417,19 +493,15 @@ public class MainViewController {
         try {
             FXMLLoader loader = new FXMLLoader(MainApp.class.getResource("share-dialog.fxml"));
             
-            // Tạo một Dialog mới và set DialogPane đã load từ FXML
             Dialog<ButtonType> dialog = new Dialog<>();
             dialog.setDialogPane(loader.load());
             dialog.setTitle("Share File");
 
-            // Lấy controller và truyền thông tin file vào
             ShareDialogController controller = loader.getController();
             controller.setFileInfo(selectedFile);
 
-            // Hiển thị dialog và chờ kết quả
             Optional<ButtonType> result = dialog.showAndWait();
 
-            // Xử lý khi người dùng bấm nút "Share with User"
             if (result.isPresent() && result.get().getButtonData() == ButtonBar.ButtonData.OK_DONE) {
                 String username = controller.getUsernameToShare();
                 if (username != null && !username.trim().isEmpty()) {
@@ -451,16 +523,13 @@ public class MainViewController {
 
     @FXML
     protected void onAccessLinkClick() {
-        // 1. TẠO DIALOG TÙY CHỈNH
         Dialog<String[]> dialog = new Dialog<>();
         dialog.setTitle("Access Public Link");
         dialog.setHeaderText("Enter the token you received to access the file.");
 
-        // 2. TẠO CÁC NÚT BẤM
         ButtonType accessButtonType = new ButtonType("Access File", ButtonBar.ButtonData.OK_DONE);
         dialog.getDialogPane().getButtonTypes().addAll(accessButtonType, ButtonType.CANCEL);
 
-        // 3. TẠO LAYOUT VÀ CÁC TRƯỜNG NHẬP LIỆU
         GridPane grid = new GridPane();
         grid.setHgap(10);
         grid.setVgap(10);
@@ -478,34 +547,27 @@ public class MainViewController {
         
         dialog.getDialogPane().setContent(grid);
 
-        // Yêu cầu focus vào ô token khi dialog mở ra
         Platform.runLater(tokenField::requestFocus);
         
-        // 4. CHUYỂN ĐỔI KẾT QUẢ KHI NGƯỜI DÙNG BẤM NÚT "ACCESS FILE"
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == accessButtonType) {
-                // Trả về một mảng chứa token và password
                 return new String[]{tokenField.getText(), passwordField.getText()};
             }
             return null;
         });
 
-        // 5. HIỂN THỊ DIALOG VÀ CHỜ KẾT QUẢ
         Optional<String[]> result = dialog.showAndWait();
 
-        // 6. XỬ LÝ KẾT QUẢ
         result.ifPresent(credentials -> {
             String token = credentials[0].trim();
             String password = credentials[1];
 
             if (!token.isEmpty()) {
-                // Mở cửa sổ chọn nơi lưu file
                 DirectoryChooser directoryChooser = new DirectoryChooser();
                 directoryChooser.setTitle("Select Save Location for Linked File");
                 java.io.File saveDirectory = directoryChooser.showDialog(mainTableView.getScene().getWindow());
 
                 if (saveDirectory != null) {
-                    // Bắt đầu luồng download bằng token
                     downloadFileByTokenThread(token, password, saveDirectory.getAbsolutePath());
                 }
             }
@@ -514,22 +576,14 @@ public class MainViewController {
     
     @FXML
     protected void onLogoutAction() {
-        // Hiển thị hộp thoại xác nhận để tránh người dùng bấm nhầm
         if (confirmAction("Confirm Logout", "Are you sure you want to log out and return to the login screen?")) {
             
-            // Thực hiện hành động logout trên một luồng riêng để không làm treo giao diện
             new Thread(() -> {
-                // Lấy instance của SocketClient và đóng kết nối
-                // Việc đóng kết nối sẽ tự động gửi lệnh QUIT nếu hàm close() được viết đúng
                 SocketClientSingleton.getInstance().close();
-
-                // Chuyển về màn hình Login trên luồng chính của JavaFX
                 Platform.runLater(() -> {
                     try {
-                        // Tải lại màn hình login
                         SceneManager.loadScene("login-view.fxml", "File Storage - Login");
                     } catch (IOException e) {
-                        // Hiển thị lỗi nếu không thể tải lại màn hình login
                         showAlert(AlertType.ERROR, "UI Error", "Could not load the login screen.");
                         e.printStackTrace();
                     }
@@ -557,9 +611,11 @@ public class MainViewController {
                     String response = socketClient.inviteToGroup(currentGroupId, username);
                     Platform.runLater(() -> {
                         showAlert(AlertType.INFORMATION, "Invite Status", response);
-                        if (response.startsWith("200 OK")) refreshCurrentView(); // Tải lại danh sách member
+                        if (response.startsWith("200 OK")) refreshCurrentView();
                     });
-                } catch (IOException e) { /* ... */ }
+                } catch (IOException e) { 
+                    Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Action failed: " + e.getMessage()));
+                }
             }).start();
         });
     }
@@ -581,7 +637,9 @@ public class MainViewController {
                         showAlert(AlertType.INFORMATION, "Kick Status", response);
                         if (response.startsWith("200 OK")) refreshCurrentView();
                     });
-                } catch (IOException e) { /* ... */ }
+                } catch (IOException e) { 
+                    Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Action failed: " + e.getMessage()));
+                }
             }).start();
         }
     }
@@ -606,11 +664,9 @@ public class MainViewController {
             dialog.setDialogPane(dialogPane);
             dialog.setTitle("Version History");
             
-            // Thêm nút Restore vào DialogPane từ code
             ButtonType restoreButtonType = new ButtonType("Restore Selected Version", ButtonBar.ButtonData.OK_DONE);
             dialogPane.getButtonTypes().add(restoreButtonType);
             
-            // Lấy nút Restore và gán sự kiện onAction cho nó
             Button restoreButton = (Button) dialogPane.lookupButton(restoreButtonType);
             restoreButton.setOnAction(event -> controller.onRestoreClick());
             
@@ -618,7 +674,6 @@ public class MainViewController {
             
             dialog.showAndWait();
             
-            // Sau khi dialog đóng, tải lại view chính để cập nhật thông tin file
             refreshCurrentView();
 
         } catch (IOException e) {
@@ -638,7 +693,6 @@ public class MainViewController {
         statusLabel.setText("Searching for '" + keyword + "'...");
         tableData.clear();
         
-        // Tạo một bản sao của view hiện tại và group ID để luồng mới có thể dùng
         final CurrentView viewForSearch = currentView;
         final long groupIdForSearch = currentGroupId;
 
@@ -646,7 +700,6 @@ public class MainViewController {
             try {
                 List<File> searchResults;
                 
-                // --- LOGIC MỚI: GỌI HÀM SEARCH TƯƠNG ỨNG VỚI VIEW ---
                 switch (viewForSearch) {
                     case SHARED_FILES:
                         searchResults = socketClient.searchSharedFiles(keyword);
@@ -693,11 +746,9 @@ public class MainViewController {
         statusLabel.setText("Accessing link and downloading...");
         new Thread(() -> {
             try {
-                // Gọi đến hàm trong SocketClient mà mình sẽ tạo ở bước tiếp theo
                 String response = socketClient.downloadFileByToken(token, password, savePath);
                 Platform.runLater(() -> {
                     showAlert(AlertType.INFORMATION, "Download Status", response);
-                    // Không cần refresh view vì file này không thuộc về người dùng
                 });
             } catch (IOException e) {
                 Platform.runLater(() -> showAlert(AlertType.ERROR, "Error", "Action failed: " + e.getMessage()));
@@ -730,9 +781,31 @@ public class MainViewController {
     }
 
     // --- CÁC HÀM PHỤ ĐỂ CẤU HÌNH CỘT CHO TABLEVIEW ---
+
+    /**
+     * HÀM ĐÃ SỬA: Thêm cột "Version" và "Status" (Lock)
+     */
     private void setupFileViewColumns() {
         mainTableView.getColumns().clear();
         
+        TableColumn<Object, String> lockCol = new TableColumn<>("Status");
+        lockCol.setCellValueFactory(cellData -> {
+            if (cellData.getValue() instanceof File) {
+                File file = (File) cellData.getValue();
+                if (file.isLocked()) {
+                    String currentUsername = SocketClientSingleton.getInstance().getCurrentUser().getUsername();
+                    if (file.getLockedByUsername() != null && file.getLockedByUsername().equals(currentUsername)) {
+                        return new SimpleStringProperty("LOCKED (By You)");
+                    } else {
+                        return new SimpleStringProperty("LOCKED by " + file.getLockedByUsername());
+                    }
+                }
+            }
+            return new SimpleStringProperty("");
+        });
+        lockCol.setPrefWidth(150);
+
+
         TableColumn<Object, String> nameCol = new TableColumn<>("Name");
         nameCol.setCellValueFactory(cellData -> {
             if (cellData.getValue() instanceof File) {
@@ -744,6 +817,7 @@ public class MainViewController {
         
         TableColumn<Object, Long> sizeCol = new TableColumn<>("Size (bytes)");
         sizeCol.setCellValueFactory(new PropertyValueFactory<>("fileSize"));
+        sizeCol.setPrefWidth(100);
 
         TableColumn<Object, String> ownerCol = new TableColumn<>("Owner");
         ownerCol.setCellValueFactory(cellData -> {
@@ -753,6 +827,7 @@ public class MainViewController {
             return new SimpleStringProperty("");
         });
         ownerCol.setPrefWidth(120);
+        
         TableColumn<Object, String> dateCol = new TableColumn<>("Last Modified");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         dateCol.setCellValueFactory(cellData -> {
@@ -762,17 +837,21 @@ public class MainViewController {
             }
             return new SimpleStringProperty("");
         });
-        dateCol.setPrefWidth(150);
+        dateCol.setPrefWidth(130);
+        
+        TableColumn<Object, Integer> versionCol = new TableColumn<>("Ver");
+        versionCol.setCellValueFactory(new PropertyValueFactory<>("currentVersion"));
+        versionCol.setPrefWidth(50);
 
-        // Thêm ownerCol vào danh sách cột
-        mainTableView.getColumns().addAll(nameCol, sizeCol, ownerCol, dateCol);
+
+        mainTableView.getColumns().addAll(lockCol, nameCol, sizeCol, ownerCol, dateCol, versionCol);
     }
 
     private void setupGroupViewColumns() {
         mainTableView.getColumns().clear();
 
         TableColumn<Object, Long> idCol = new TableColumn<>("Group ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("groupId")); // SỬA LẠI: 'g' thành 'G'
+        idCol.setCellValueFactory(new PropertyValueFactory<>("groupId"));
         
         TableColumn<Object, String> nameCol = new TableColumn<>("Group Name");
         nameCol.setCellValueFactory(cellData -> {
@@ -797,11 +876,9 @@ public class MainViewController {
         nameCol.setPrefWidth(250);
         
         TableColumn<Object, String> roleCol = new TableColumn<>("Role");
-        // Dùng PropertyValueFactory vì thuộc tính là roleInGroup
         roleCol.setCellValueFactory(new PropertyValueFactory<>("roleInGroup")); 
         roleCol.setPrefWidth(150);
         
-        // Thêm roleCol vào danh sách cột
         mainTableView.getColumns().addAll(idCol, nameCol, roleCol);
     }
 }
