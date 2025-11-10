@@ -64,8 +64,12 @@ public class ClientHandler extends Thread {
 
     private boolean processCommand(String commandLine) {
         List<String> partsList = new ArrayList<>();
+        // Regex này sẽ bắt các chuỗi trong ngoặc kép hoặc các từ đơn
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("([^\"]\\S*|\".+?\")\\s*").matcher(commandLine);
+        
         while (m.find()) {
+            // --- PHẦN SỬA LỖI ---
+            // Xóa dấu ngoặc kép ở ĐẦU và CUỐI của chuỗi đã bắt được
             partsList.add(m.group(1).replaceAll("^\"|\"$", ""));
         }
         String[] parts = partsList.toArray(new String[0]);

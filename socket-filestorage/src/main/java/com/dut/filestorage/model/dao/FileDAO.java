@@ -318,17 +318,24 @@ public class FileDAO {
         }
     }
 
-    public File findByNameAndLocationForUpdate(Connection conn, String fileName, Long uploaderId, Long groupId) throws SQLException {
+     public File findByNameAndLocationForUpdate(Connection conn, String fileName, Long uploaderId, Long groupId) throws SQLException {
         String sql;
         PreparedStatement pstmt = null;
+        
+        String sqlBase = "SELECT f.*, u.username as owner_name, locker.username as locked_by_username, " +
+                         "(SELECT MAX(fv.version_number) FROM file_versions fv WHERE fv.file_id = f.file_id) as current_version " +
+                         "FROM `files` f " +
+                         "JOIN `users` u ON f.owner_id = u.user_id " +
+                         "LEFT JOIN `users` locker ON f.locked_by_user_id = locker.user_id ";
+
         try {
             if (groupId != null) {
-                sql = "SELECT * FROM files WHERE file_name = ? AND group_id = ? FOR UPDATE";
+                sql = sqlBase + "WHERE f.file_name = ? AND f.group_id = ? FOR UPDATE";
                 pstmt = conn.prepareStatement(sql);
                 pstmt.setString(1, fileName);
                 pstmt.setLong(2, groupId);
             } else {
-                sql = "SELECT * FROM files WHERE file_name = ? AND owner_id = ? AND group_id IS NULL FOR UPDATE";
+                sql = sqlBase + "WHERE f.file_name = ? AND f.owner_id = ? AND f.group_id IS NULL FOR UPDATE";
                 pstmt = conn.prepareStatement(sql);
                 pstmt.setString(1, fileName);
                 pstmt.setLong(2, uploaderId);
@@ -336,7 +343,6 @@ public class FileDAO {
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    // Dùng mapRowToFile chuẩn hóa
                     return mapRowToFile(rs);
                 }
             }

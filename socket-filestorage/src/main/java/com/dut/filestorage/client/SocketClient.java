@@ -178,6 +178,51 @@ public class SocketClient {
         }
     }
 
+    /**
+     * Chỉ download file (không khóa).
+     * Server sẽ kiểm tra xem file có bị NGƯỜI KHÁC khóa không.
+     */
+    public String downloadFile(long fileId, String saveDirectoryPath) throws IOException {
+        // Gửi lệnh DOWNLOAD (lệnh này đã có sẵn trong ClientHandler)
+        out.println("DOWNLOAD " + fileId);
+        String serverResponse = in.readLine();
+
+        if (serverResponse == null || !serverResponse.startsWith("201 INFO")) {
+            return "Server error: " + (serverResponse != null ? serverResponse : "No response");
+        }
+        
+        // Phân tích phản hồi (Tên file và Kích thước)
+        String[] infoParts = serverResponse.split(" ");
+        String fileName = infoParts[2];
+        long fileSize = Long.parseLong(infoParts[3]);
+
+        // Báo cho server "Tôi sẵn sàng nhận"
+        out.println("CLIENT_READY");
+        
+        // Chuẩn bị thư mục lưu
+        java.io.File saveDir = new java.io.File(saveDirectoryPath);
+        if (!saveDir.exists()) saveDir.mkdirs();
+
+        // Bắt đầu nhận file
+        try (FileOutputStream fos = new FileOutputStream(new java.io.File(saveDir, fileName))) {
+            InputStream socketInputStream = socket.getInputStream();
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+            long totalBytesRead = 0;
+            
+            while (totalBytesRead < fileSize && (bytesRead = socketInputStream.read(buffer, 0, (int) Math.min(buffer.length, fileSize - totalBytesRead))) != -1) {
+                fos.write(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
+            }
+
+            if (totalBytesRead == fileSize) {
+                return "200 OK Download completed successfully.";
+            } else {
+                return "500 ERROR Download incomplete.";
+            }
+        }
+    }
+
     // --- HÀM MỚI: lockFile ---
     public String lockFile(long fileId) throws IOException {
         return sendSingleLineCommand("LOCK " + fileId);

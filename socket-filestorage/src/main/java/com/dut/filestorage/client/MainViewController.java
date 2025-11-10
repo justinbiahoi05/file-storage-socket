@@ -3,6 +3,7 @@ package com.dut.filestorage.client;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -22,6 +23,7 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.DialogPane;
 import javafx.scene.control.Label;
@@ -49,8 +51,9 @@ public class MainViewController {
     @FXML private Button inviteButton;
     @FXML private Button kickButton;
     @FXML private Button backButton;
-    @FXML private Button lockButton; // (Giả sử đây là nút onLockAndEditClick)
-    @FXML private Button unlockButton; // (Nút onUnlockButtonClick)
+    @FXML private Button lockButton;
+    @FXML private Button unlockButton;
+    @FXML private Button viewButton;
     
     // --- Class Members ---
     private SocketClient socketClient;
@@ -229,11 +232,47 @@ public class MainViewController {
         java.io.File selectedFile = fileChooser.showOpenDialog(mainTableView.getScene().getWindow());
 
         if (selectedFile != null) {
-            // Xác định groupId đích (nếu đang ở view group)
-            Long targetGroupId = (currentView == CurrentView.GROUP_FILES) ? currentGroupId : null;
-            
-            // Gọi hàm xử lý upload
-            uploadFileThread(selectedFile, targetGroupId);
+            // Phải chạy trên luồng nền để không treo UI
+            new Thread(() -> {
+                try {
+                    // 1. Lấy danh sách nhóm trước
+                    List<Group> userGroups = socketClient.listGroups();
+                    List<String> choices = new ArrayList<>();
+                    choices.add("My Files (Personal)"); // Lựa chọn 1
+                    userGroups.forEach(group -> choices.add("Group: " + group.getGroupName())); // Lựa chọn 2, 3...
+
+                    // 2. Hiển thị dialog trên luồng JavaFX
+                    Platform.runLater(() -> {
+                        
+                        ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
+                        dialog.setTitle("Upload Destination");
+                        dialog.setHeaderText("Choose where to upload '" + selectedFile.getName() + "'");
+                        dialog.setContentText("Upload to:");
+
+                        Optional<String> result = dialog.showAndWait();
+                        
+                        // 3. Xử lý kết quả
+                        result.ifPresent(destination -> {
+                            Long targetGroupId = null;
+                            if (destination.startsWith("Group: ")) {
+                                String groupName = destination.substring(7);
+                                // Tìm ID của nhóm đã chọn
+                                targetGroupId = userGroups.stream()
+                                        .filter(g -> g.getGroupName().equals(groupName))
+                                        .findFirst()
+                                        .map(Group::getGroupId)
+                                        .orElse(null);
+                            }
+                            
+                            // 4. Gọi hàm uploadFileThread với đúng targetGroupId
+                            // (Hàm uploadFileThread và continueUploadProcess của bạn đã đúng, không cần sửa)
+                            uploadFileThread(selectedFile, targetGroupId);
+                        });
+                    });
+                } catch (Exception e) {
+                    Platform.runLater(() -> showAlert(Alert.AlertType.ERROR, "Error", "Could not fetch group list: " + e.getMessage()));
+                }
+            }).start();
         }
     }
 
@@ -365,6 +404,38 @@ public class MainViewController {
         }
     }
 
+    @FXML
+    protected void onViewButtonClick() {
+        Object selectedItem = mainTableView.getSelectionModel().getSelectedItem();
+        if (selectedItem == null || !(selectedItem instanceof File)) {
+            showAlert(AlertType.WARNING, "Selection Error", "Please select a file to view/download.");
+            return;
+        }
+
+        File selectedFile = (File) selectedItem;
+
+        DirectoryChooser directoryChooser = new DirectoryChooser();
+        directoryChooser.setTitle("Select Save Location");
+        java.io.File saveDirectory = directoryChooser.showDialog(mainTableView.getScene().getWindow());
+
+        if (saveDirectory != null) {
+            statusLabel.setText("Downloading " + selectedFile.getFileName() + "...");
+            new Thread(() -> {
+                try {
+                    // Gọi hàm downloadFile (KHÔNG PHẢI lockAndDownload)
+                    String response = socketClient.downloadFile(selectedFile.getId(), saveDirectory.getAbsolutePath());
+                    
+                    Platform.runLater(() -> {
+                        showAlert(AlertType.INFORMATION, "Download Status", response);
+                        statusLabel.setText("Download finished.");
+                    });
+                } catch (IOException e) {
+                    Platform.runLater(() -> showAlert(AlertType.ERROR, "Download Error", "Download failed: " + e.getMessage()));
+                }
+            }).start();
+        }
+    }
+    
     /**
      * HÀM MỚI: Xử lý việc mở khóa file.
      */

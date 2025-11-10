@@ -250,13 +250,13 @@ public class FileSystemService {
          throw new Exception("Access denied. You do not have permission to delete this file.");
      }
 
-    // --- Thêm check-lock ---
     public File getFileForDownload(long fileId, Long requestUserId) throws Exception {
         File file = fileDAO.findById(fileId);
         if (file == null) {
             throw new Exception("File not found.");
         }
         
+        // Bước 1: Kiểm tra quyền (Owner, Shared, Group)
         boolean isOwner = file.getOwnerId().equals(requestUserId);
         boolean isSharedWith = shareDAO.isFileSharedWithUser(fileId, requestUserId);
         boolean isMemberOfGroup = (file.getGroupId() != null) && collaborationService.isUserMemberOfGroup(file.getGroupId(), requestUserId);
@@ -265,11 +265,7 @@ public class FileSystemService {
             throw new Exception("Access denied. You do not have permission to download this file.");
         }
 
-        if (file.isLocked() && !file.getLockedByUserId().equals(requestUserId)) {
-             throw new Exception("409 CONFLICT: File is locked by " + file.getLockedByUsername() + ". Cannot download.");
-        }
-
-        return file;
+        return file; // Trả về file bất kể trạng thái khóa
     }
 
     public List<File> searchMyFiles(String keyword, long userId) throws Exception {

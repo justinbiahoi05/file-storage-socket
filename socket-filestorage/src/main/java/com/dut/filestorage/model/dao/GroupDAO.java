@@ -14,8 +14,8 @@ import com.dut.filestorage.utils.DatabaseManager;
 public class GroupDAO {
     
     public Group save(Group group) throws SQLException {
-        // SỬA LỖI: `group` -> groups (không cần backtick)
-        String sql = "INSERT INTO groups (group_name, owner_id) VALUES (?, ?)";
+        // SỬA: Thêm backtick cho `groups` và các cột
+        String sql = "INSERT INTO `groups` (`group_name`, `owner_id`) VALUES (?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             
@@ -39,8 +39,9 @@ public class GroupDAO {
     }
     
     public boolean findByName(String groupName) throws SQLException {
-        // ĐÃ ĐÚNG: groups
-        String sql = "SELECT COUNT(*) FROM groups WHERE group_name = ?";
+        // SỬA: Thêm backtick cho `groups` và `group_name`
+        String sql = "SELECT COUNT(*) FROM `groups` WHERE `group_name` = ?";
+        
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, groupName);
@@ -54,8 +55,8 @@ public class GroupDAO {
     }
     
     public Group findById(long groupId) throws SQLException {
-        // ĐÃ ĐÚNG: groups
-        String sql = "SELECT * FROM groups WHERE group_id = ?";
+        // SỬA: Thêm backtick
+        String sql = "SELECT * FROM `groups` WHERE `group_id` = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, groupId);
@@ -77,8 +78,8 @@ public class GroupDAO {
 
     public List<Group> findAllGroupsByUserId(long userId) throws SQLException {
         List<Group> groups = new ArrayList<>();
-        // ĐÃ ĐÚNG: groups
-        String sql = "SELECT g.* FROM groups g INNER JOIN group_members gm ON g.group_id = gm.group_id WHERE gm.user_id = ?";
+        // SỬA: Thêm backtick
+        String sql = "SELECT g.* FROM `groups` g INNER JOIN `group_members` gm ON g.`group_id` = gm.`group_id` WHERE gm.`user_id` = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, userId);
@@ -96,8 +97,8 @@ public class GroupDAO {
     }
     
     public void deleteById(long groupId) throws SQLException {
-        // ĐÃ ĐÚNG: groups
-        String sql = "DELETE FROM groups WHERE group_id = ?";
+        // SỬA: Thêm backtick
+        String sql = "DELETE FROM `groups` WHERE `group_id` = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, groupId);

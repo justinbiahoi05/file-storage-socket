@@ -1,0 +1,52 @@
+lỗi file vesion k conflict
+xài khóa bi quan
+Các cases:
+Kịch bản 1: Luồng thành công (Happy Path)
+Hành động (Client userA):
+Vào nhóm Nhom_Chung, thấy file file_chung.txt.
+Chọn file file_chung.txt.
+Click nút "Lock & Download for Editing".
+Kết quả mong đợi (phía userA):
+File được download thành công.
+Giao diện có thể hiển thị một icon ổ khóa nhỏ bên cạnh file_chung.txt, cho biết userA đang khóa nó.
+Kiểm tra "hậu trường": Mở phpMyAdmin, vào bảng files, tìm đến file_id = 1. Cột is_locked phải là 1 (true) và locked_by_user_id phải là user_id của userA.
+Kịch bản 2: Xung đột Khóa (Conflict)
+Hành động (Client userB):
+Trong khi userA vẫn đang khóa file.
+userB vào nhóm Nhom_Chung.
+Giao diện của userB nên hiển thị icon ổ khóa bên cạnh file file_chung.txt (cho biết file đang bị khóa).
+userB chọn file file_chung.txt và cũng click nút "Lock & Download for Editing".
+Kết quả mong đợi (phía userB):
+Hành động thất bại.
+Một Alert hiện ra với thông báo: 409 CONFLICT: File is currently locked for editing by userA.
+Nút "Upload" trên giao diện của userB nên bị vô hiệu hóa khi file này được chọn.
+Kịch bản 3: Mở khóa sau khi Cập nhật
+Hành động (Client userA):
+Sau khi đã sửa file_chung.txt (nội dung giờ là của file_A_sua.txt).
+Click nút "Upload" và chọn file file_A_sua.txt để cập nhật.
+Nhập ghi chú "Đã sửa bởi A".
+Kết quả mong đợi (phía userA):
+Upload thành công, tạo ra phiên bản v2.
+Icon ổ khóa bên cạnh file file_chung.txt biến mất.
+Kiểm tra "hậu trường":
+Mở bảng file_versions, phải có bản ghi v2 mới.
+Mở bảng files, tìm đến file_id = 1. Cột is_locked phải quay về 0 (false) và locked_by_user_id phải là NULL.
+Kịch bản 4: Luồng làm việc Tuần tự
+Hành động (Client userB):
+Sau khi userA đã mở khóa file.
+userB click "Refresh" (hoặc chuyển view qua lại) để cập nhật trạng thái mới nhất.
+userB thấy icon ổ khóa đã biến mất.
+userB bây giờ click "Lock & Download for Editing".
+Kết quả mong đợi (phía userB):
+Thành công! userB download được phiên bản v2 mới nhất của file.
+File bây giờ lại bị khóa, nhưng là bởi userB.
+Kịch bản 5: Hủy Khóa (Cancel Lock - Tính năng nâng cao)
+Hành động (Client userA):
+userA "Lock & Download" một file.
+Nhưng sau đó userA đổi ý, không muốn sửa nữa.
+userA click chuột phải vào file và chọn "Cancel Lock" (hoặc có một nút riêng).
+Kết quả mong đợi:
+Client gửi lệnh UNLOCK <file_id>.
+Server xử lý và mở khóa file trong CSDL.
+Icon ổ khóa trên giao diện của userA biến mất.
+Những người dùng khác (như userB) giờ có thể vào khóa và sửa file.

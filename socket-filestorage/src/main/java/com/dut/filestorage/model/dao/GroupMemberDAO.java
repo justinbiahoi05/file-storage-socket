@@ -14,8 +14,8 @@ import com.dut.filestorage.utils.DatabaseManager;
 public class GroupMemberDAO {
     public void save(GroupMember groupMember) throws SQLException {
         
-        // SỬA LỖI: Thêm dấu backtick (`) xung quanh `role`
-        String sql = "INSERT INTO group_members (`role`, user_id, group_id) VALUES (?, ?, ?)";
+        // SỬA: Thêm backtick cho `group_members` và các cột
+        String sql = "INSERT INTO `group_members` (`role`, `user_id`, `group_id`) VALUES (?, ?, ?)";
         
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -26,7 +26,8 @@ public class GroupMemberDAO {
         }
     }
     public boolean isMember(Long groupId, Long userId) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM group_members WHERE group_id = ? AND user_id = ?";
+        // SỬA: Thêm backtick
+        String sql = "SELECT COUNT(*) FROM `group_members` WHERE `group_id` = ? AND `user_id` = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, groupId);
@@ -40,7 +41,8 @@ public class GroupMemberDAO {
         return false;
     }
     public void removeMember(long groupId, long userId) throws SQLException {
-        String sql = "DELETE FROM group_members WHERE group_id = ? AND user_id = ?";
+        // SỬA: Thêm backtick
+        String sql = "DELETE FROM `group_members` WHERE `group_id` = ? AND `user_id` = ?";
         try (Connection conn = DatabaseManager.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setLong(1, groupId);
@@ -51,10 +53,10 @@ public class GroupMemberDAO {
     public List<User> findMembersByGroupId(long groupId) throws SQLException {
         List<User> members = new ArrayList<>();
         
-        // SỬA LỖI: Thêm dấu backtick (`) xung quanh `role`
-        String sql = "SELECT u.user_id, u.username, gm.`role` FROM users u " +
-                     "INNER JOIN group_members gm ON u.user_id = gm.user_id " +
-                     "WHERE gm.group_id = ?";
+        // SỬA: Thêm backtick cho tất cả
+        String sql = "SELECT u.`user_id`, u.`username`, gm.`role` FROM `users` u " +
+                     "INNER JOIN `group_members` gm ON u.`user_id` = gm.`user_id` " +
+                     "WHERE gm.`group_id` = ?";
         
         try (Connection conn = DatabaseManager.getConnection();
            PreparedStatement pstmt = conn.prepareStatement(sql)) {

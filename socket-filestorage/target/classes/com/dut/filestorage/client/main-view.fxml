@@ -27,7 +27,7 @@
                      </image>
                   </ImageView>
                   <Button fx:id="uploadButton" mnemonicParsing="false" onAction="#onUploadButtonClick" style="-fx-font-weight: bold;" text="Upload" />
-                  
+                  <Button fx:id="viewButton" mnemonicParsing="false" onAction="#onViewButtonClick" style="-fx-font-weight: bold;" text="View" />
                   <Button fx:id="lockButton" mnemonicParsing="false" onAction="#onLockAndEditClick" style="-fx-font-weight: bold;" text="Lock &amp; Edit" />
                   
                   <Button fx:id="unlockButton" mnemonicParsing="false" onAction="#onUnlockButtonClick" style="-fx-font-weight: bold;" text="Unlock" />
