@@ -34,6 +34,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Pane;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 
@@ -54,6 +55,13 @@ public class MainViewController {
     @FXML private Button lockButton;
     @FXML private Button unlockButton;
     @FXML private Button viewButton;
+    @FXML private Button uploadButton;
+    @FXML private Button deleteButton;
+    @FXML private Button shareButton;
+    @FXML private Button newGroupButton;
+    @FXML private Button historyButton;
+    @FXML private Button accessLinkButton;
+    @FXML private Pane searchPane;
     
     // --- Class Members ---
     private SocketClient socketClient;
@@ -85,22 +93,88 @@ public class MainViewController {
 
     // --- HÀM QUẢN LÝ TRẠNG THÁI GIAO DIỆN ---
     private void updateButtonVisibility() {
+        // --- ẨN TẤT CẢ CÁC NÚT ĐIỀU KHIỂN ---
+        
+        // Nút thanh công cụ chính
+        uploadButton.setVisible(false);
+        viewButton.setVisible(false);
+        lockButton.setVisible(false);
+        unlockButton.setVisible(false);
+        deleteButton.setVisible(false);
+        shareButton.setVisible(false);
+        newGroupButton.setVisible(false);
+        historyButton.setVisible(false);
+        accessLinkButton.setVisible(false);
+        
+        // Nút thanh tìm kiếm/lịch sử
+        if (searchField != null) searchField.setVisible(false);
+        if (searchField != null && searchField.getParent() != null && searchField.getParent() instanceof Pane) {
+             ((Pane)searchField.getParent()).setVisible(false);
+        }
+
+        // Nút ngữ cảnh nhóm
         viewMembersButton.setVisible(false);
         inviteButton.setVisible(false);
         kickButton.setVisible(false);
         backButton.setVisible(false);
 
+        // --- CHỌN LỌC HIỂN THỊ LẠI DỰA TRÊN VIEW ---
+        
+        // Hiện thanh tìm kiếm và Access Link cho tất cả các view
+        if (searchField != null) searchField.setVisible(true);
+        if (searchField != null && searchField.getParent() != null && searchField.getParent() instanceof Pane) {
+             ((Pane)searchField.getParent()).setVisible(true);
+        }
+        accessLinkButton.setVisible(true);
+
+
         switch (currentView) {
-            case GROUP_FILES:
-                viewMembersButton.setVisible(true);
-                backButton.setVisible(true);
+            case MY_FILES:
+            case GROUP_FILES: // View My Files và Group Files có các nút giống nhau
+                uploadButton.setVisible(true);
+                viewButton.setVisible(true);
+                lockButton.setVisible(true);
+                unlockButton.setVisible(true);
+                deleteButton.setVisible(true);
+                shareButton.setVisible(true);
+                newGroupButton.setVisible(true);
+                historyButton.setVisible(true);
+                
+                if (currentView == CurrentView.GROUP_FILES) {
+                    viewMembersButton.setVisible(true);
+                    backButton.setVisible(true);
+                }
                 break;
+                
+            case SHARED_FILES: // <-- LOGIC MỚI CỦA BẠN
+                // Chỉ hiện View, Delete (để xóa lượt share), và New Group
+                viewButton.setVisible(true);
+                deleteButton.setVisible(true);
+                newGroupButton.setVisible(true);
+                break;
+
+            case MY_GROUPS:
+                // Chỉ hiện New Group và Delete
+                newGroupButton.setVisible(true);
+                deleteButton.setVisible(true);
+                break;
+
             case GROUP_MEMBERS:
+                // Ẩn thanh tìm kiếm
+                 if (searchField != null && searchField.getParent() != null && searchField.getParent() instanceof Pane) {
+                     ((Pane)searchField.getParent()).setVisible(false);
+                 }
+                accessLinkButton.setVisible(false); // Ẩn luôn access link
+
+                // Hiện các nút quản lý thành viên
                 inviteButton.setVisible(true);
                 kickButton.setVisible(true);
                 backButton.setVisible(true);
                 break;
+                
             default:
+                // Mặc định (phòng hờ)
+                newGroupButton.setVisible(true);
                 break;
         }
     }

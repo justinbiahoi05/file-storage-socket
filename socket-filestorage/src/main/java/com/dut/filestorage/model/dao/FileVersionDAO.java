@@ -11,7 +11,6 @@ import com.dut.filestorage.model.entity.FileVersion;
 import com.dut.filestorage.utils.DatabaseManager;
 
 public class FileVersionDAO {
-    // --- HÀM CŨ (DÙNG CHO TRƯỜNG HỢP KHÔNG CẦN TRANSACTION) ---
     public void save(FileVersion version) throws SQLException {
         String sql = "INSERT INTO file_versions (file_id, version_number, stored_path, uploader_id, notes) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = DatabaseManager.getConnection();
@@ -28,9 +27,7 @@ public class FileVersionDAO {
     }
 
 
-    // --- HÀM MỚI (DÙNG RIÊNG CHO TRANSACTION TRONG FileSystemService) ---
     public void save(Connection conn, FileVersion version) throws SQLException {
-        // Logic y hệt hàm trên, nhưng dùng `conn` được truyền vào
         String sql = "INSERT INTO file_versions (file_id, version_number, stored_path, uploader_id, notes) VALUES (?, ?, ?, ?, ?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             

@@ -26,19 +26,20 @@
                         <Image url="@images/logo_black.png" />
                      </image>
                   </ImageView>
+                  
                   <Button fx:id="uploadButton" mnemonicParsing="false" onAction="#onUploadButtonClick" style="-fx-font-weight: bold;" text="Upload" />
-                  <Button fx:id="viewButton" mnemonicParsing="false" onAction="#onViewButtonClick" style="-fx-font-weight: bold;" text="View" />
                   <Button fx:id="lockButton" mnemonicParsing="false" onAction="#onLockAndEditClick" style="-fx-font-weight: bold;" text="Lock &amp; Edit" />
-                  
                   <Button fx:id="unlockButton" mnemonicParsing="false" onAction="#onUnlockButtonClick" style="-fx-font-weight: bold;" text="Unlock" />
-                  
+                  <Button fx:id="viewButton" mnemonicParsing="false" onAction="#onViewButtonClick" style="-fx-font-weight: bold;" text="View" />
                   <Button fx:id="deleteButton" mnemonicParsing="false" onAction="#onDeleteButtonClick" style="-fx-font-weight: bold;" text="Delete" />
-                  <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" style="-fx-font-weight: bold;" text="Share" />
                   <Button fx:id="newGroupButton" mnemonicParsing="false" onAction="#onNewGroupButtonClick" style="-fx-font-weight: bold;" text="New Group" />
+                  <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" style="-fx-font-weight: bold;" text="Share" />
+                  
                   <Button fx:id="inviteButton" mnemonicParsing="false" onAction="#onInviteMemberClick" style="-fx-font-weight: bold;" text="Invite Member" visible="false" />
                   <Button fx:id="kickButton" mnemonicParsing="false" onAction="#onKickMemberClick" style="-fx-font-weight: bold;" text="Kick Member" visible="false" />
                   <Button fx:id="viewMembersButton" mnemonicParsing="false" onAction="#onViewMembersClick" style="-fx-font-weight: bold;" text="View Members" visible="false" />
                   <Button fx:id="backButton" alignment="TOP_LEFT" mnemonicParsing="false" onAction="#onBackButtonClick" style="-fx-font-weight: bold;" text="Back " visible="false" />
+                  
                   <Button mnemonicParsing="false" onAction="#onLogoutAction" style="-fx-font-weight: bold;" text="Log out" />
                   
                       <Label fx:id="currentUserLabel" maxWidth="100.0" text="Userrrrrrrr">
@@ -46,7 +47,7 @@
                            <Insets left="10.0" />
                         </padding>
                         <font>
-                           <Font name="Times New Roman Bold" size="15.0" />
+                           <Font name="Times New Roman Bold" size="13.0" />
                         </font>
                   </Label>
               </items>
@@ -94,18 +95,19 @@
    <center>
       <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
          <children>
-            <Pane prefHeight="37.0" prefWidth="790.0" style="-fx-background-color: white;">
+            <Pane fx:id="searchPane" prefHeight="37.0" prefWidth="790.0" style="-fx-background-color: white;">
                <children>
                   <TextField fx:id="searchField" layoutY="5.0" prefHeight="26.0" prefWidth="205.0" promptText="Search files by name..." />
                   <Button layoutX="212.0" layoutY="6.0" mnemonicParsing="false" onAction="#onSearchAction" text="Search">
                      <font>
                         <Font name="System Bold" size="12.0" />
                      </font></Button>
+                  
                   <Button fx:id="accessLinkButton" layoutX="624.0" layoutY="6.0" mnemonicParsing="false" onAction="#onAccessLinkClick" text="Access Link">
                      <font>
                         <Font name="System Bold" size="12.0" />
                      </font></Button>
-                  <Button layoutX="557.0" layoutY="6.0" mnemonicParsing="false" onAction="#onHistoryButtonClick" text="History">
+                  <Button fx:id="historyButton" layoutX="557.0" layoutY="6.0" mnemonicParsing="false" onAction="#onHistoryButtonClick" text="History">
                      <font>
                         <Font name="System Bold" size="12.0" />
                      </font></Button>
