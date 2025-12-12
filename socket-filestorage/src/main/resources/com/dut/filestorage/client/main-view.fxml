@@ -7,49 +7,139 @@
 <?import javafx.scene.control.TableView?>
 <?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.ToolBar?>
+<?import javafx.scene.control.Tooltip?>
 <?import javafx.scene.image.Image?>
 <?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.layout.BorderPane?>
-<?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="890.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="436.0" prefWidth="954.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.MainViewController">
    <top>
       <VBox prefHeight="43.0" prefWidth="600.0" BorderPane.alignment="CENTER">
          <children>
-            <ToolBar prefHeight="78.0" prefWidth="890.0" style="-fx-background-color: white;">
+            <ToolBar prefHeight="78.0" prefWidth="738.0" style="-fx-background-color: white;">
               <items>
-                  <ImageView fitHeight="25.0" fitWidth="55.0" pickOnBounds="true" preserveRatio="true">
+                  <Label prefHeight="18.0" prefWidth="28.0" />
+                  <ImageView fitHeight="40.0" fitWidth="74.0" pickOnBounds="true" preserveRatio="true">
                      <image>
                         <Image url="@images/logo_black.png" />
                      </image>
                   </ImageView>
+                  <Label prefHeight="18.0" prefWidth="32.0" />
+                  <Button fx:id="viewButton" mnemonicParsing="false" onAction="#onViewButtonClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
+                     <graphic>
+                        <ImageView fitHeight="18.0" fitWidth="21.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/downloads.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                     <tooltip>
+                        <Tooltip showDelay="0ms" text="Download File" />
+                     </tooltip></Button>
+                  <Button fx:id="lockButton" mnemonicParsing="false" onAction="#onLockAndEditClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
+                     <graphic>
+                        <ImageView fitHeight="24.0" fitWidth="21.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/padlock.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                     <tooltip>
+                        <Tooltip showDelay="0ms" text="Lock File (Conflict)" />
+                     </tooltip></Button>
+                  <Button fx:id="unlockButton" mnemonicParsing="false" onAction="#onUnlockButtonClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
+                     <graphic>
+                        <ImageView fitHeight="24.0" fitWidth="23.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/unlock.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                     <tooltip>
+                        <Tooltip showDelay="0ms" text="Unlock File (Conflict)" />
+                     </tooltip></Button>
+                  <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
+                     <graphic>
+                        <ImageView fitHeight="21.0" fitWidth="19.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/share.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                     <tooltip>
+                        <Tooltip showDelay="0ms" text="Share File" />
+                     </tooltip></Button>
                   
-                  <Button fx:id="uploadButton" mnemonicParsing="false" onAction="#onUploadButtonClick" style="-fx-font-weight: bold;" text="Upload" />
-                  <Button fx:id="lockButton" mnemonicParsing="false" onAction="#onLockAndEditClick" style="-fx-font-weight: bold;" text="Lock &amp; Edit" />
-                  <Button fx:id="unlockButton" mnemonicParsing="false" onAction="#onUnlockButtonClick" style="-fx-font-weight: bold;" text="Unlock" />
-                  <Button fx:id="viewButton" mnemonicParsing="false" onAction="#onViewButtonClick" style="-fx-font-weight: bold;" text="View" />
-                  <Button fx:id="deleteButton" mnemonicParsing="false" onAction="#onDeleteButtonClick" style="-fx-font-weight: bold;" text="Delete" />
-                  <Button fx:id="newGroupButton" mnemonicParsing="false" onAction="#onNewGroupButtonClick" style="-fx-font-weight: bold;" text="New Group" />
-                  <Button fx:id="shareButton" mnemonicParsing="false" onAction="#onShareButtonClick" style="-fx-font-weight: bold;" text="Share" />
+                  <Button fx:id="accessLinkButton" mnemonicParsing="false" onAction="#onAccessLinkClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                     <graphic>
+                        <ImageView fitHeight="20.0" fitWidth="19.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/link.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                     <tooltip>
+                        <Tooltip showDelay="0ms" text="Share Access" />
+                     </tooltip></Button>
+                  <Button fx:id="historyButton" mnemonicParsing="false" onAction="#onHistoryButtonClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                     <graphic>
+                        <ImageView fitHeight="23.0" fitWidth="20.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/history.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                     <tooltip>
+                        <Tooltip showDelay="0ms" text="History File">
+                           <font>
+                              <Font name="System Bold" size="12.0" />
+                           </font>
+                        </Tooltip>
+                     </tooltip></Button>
+                  <Label prefHeight="18.0" prefWidth="112.0" />
                   
-                  <Button fx:id="inviteButton" mnemonicParsing="false" onAction="#onInviteMemberClick" style="-fx-font-weight: bold;" text="Invite Member" visible="false" />
-                  <Button fx:id="kickButton" mnemonicParsing="false" onAction="#onKickMemberClick" style="-fx-font-weight: bold;" text="Kick Member" visible="false" />
-                  <Button fx:id="viewMembersButton" mnemonicParsing="false" onAction="#onViewMembersClick" style="-fx-font-weight: bold;" text="View Members" visible="false" />
-                  <Button fx:id="backButton" alignment="TOP_LEFT" mnemonicParsing="false" onAction="#onBackButtonClick" style="-fx-font-weight: bold;" text="Back " visible="false" />
-                  
-                  <Button mnemonicParsing="false" onAction="#onLogoutAction" style="-fx-font-weight: bold;" text="Log out" />
-                  
-                      <Label fx:id="currentUserLabel" maxWidth="100.0" text="Userrrrrrrr">
-                        <padding>
-                           <Insets left="10.0" />
-                        </padding>
-                        <font>
-                           <Font name="Times New Roman Bold" size="13.0" />
-                        </font>
-                  </Label>
+                  <Button fx:id="inviteButton" mnemonicParsing="false" onAction="#onInviteMemberClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css" text="Invite Member">
+                     <graphic>
+                        <ImageView fitHeight="18.0" fitWidth="21.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/add-group.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
+                  <Button fx:id="kickButton" mnemonicParsing="false" onAction="#onKickMemberClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css" text="Kick Member">
+                     <graphic>
+                        <ImageView fitHeight="20.0" fitWidth="21.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/fired.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
+                  <Button fx:id="viewMembersButton" mnemonicParsing="false" onAction="#onViewMembersClick" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css" text="View Members">
+                     <graphic>
+                        <ImageView fitHeight="21.0" fitWidth="25.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/view.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
+                  <Button fx:id="backButton" alignment="TOP_LEFT" mnemonicParsing="false" onAction="#onBackButtonClick" style="-fx-font-weight: bold;" styleClass="logout-button" stylesheets="@style.css" text="Back ">
+                     <graphic>
+                        <ImageView fitHeight="19.0" fitWidth="18.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/back.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
               </items>
                <opaqueInsets>
                   <Insets />
@@ -59,61 +149,139 @@
       </VBox>
    </top>
    <left>
-      <VBox alignment="CENTER" prefHeight="200.0" prefWidth="100.0" spacing="10.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
+      <AnchorPane prefHeight="338.0" prefWidth="154.0" style="-fx-background-color: white;">
          <children>
-            <Button mnemonicParsing="false" onAction="#onMyFilesClick" text="My Files">
+            <Button alignment="BASELINE_LEFT" layoutX="21.0" layoutY="34.0" mnemonicParsing="false" onAction="#onMyFilesClick" prefHeight="30.0" prefWidth="110.0" styleClass="main-button" stylesheets="@style.css" text=" My Files">
                <font>
                   <Font name="System Bold" size="12.0" />
-               </font></Button>
-            <Button mnemonicParsing="false" onAction="#onSharedFilesClick" text="Shared Files">
+               </font>
+               <graphic>
+                  <ImageView fitHeight="18.0" fitWidth="15.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/folder.png" />
+                     </image>
+                  </ImageView>
+               </graphic></Button>
+            <Button alignment="BASELINE_LEFT" layoutX="21.0" layoutY="88.0" mnemonicParsing="false" onAction="#onSharedFilesClick" prefHeight="30.0" prefWidth="113.0" styleClass="main-button" stylesheets="@style.css" text=" Shared Files">
                <font>
                   <Font name="System Bold" size="12.0" />
-               </font></Button>
-            <Button mnemonicParsing="false" onAction="#onMyGroupsClick" text="My Groups">
+               </font>
+               <graphic>
+                  <ImageView fitHeight="18.0" fitWidth="15.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/sharedfolder.png" />
+                     </image>
+                  </ImageView>
+               </graphic></Button>
+            <Button alignment="BASELINE_LEFT" layoutX="21.0" layoutY="144.0" mnemonicParsing="false" onAction="#onMyGroupsClick" prefHeight="30.0" prefWidth="112.0" styleClass="main-button" stylesheets="@style.css" text=" My Groups">
                <font>
                   <Font name="System Bold" size="12.0" />
-               </font></Button>
+               </font>
+               <graphic>
+                  <ImageView fitHeight="19.0" fitWidth="18.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/people.png" />
+                     </image>
+                  </ImageView>
+               </graphic></Button>
+            
+                      <Label fx:id="currentUserLabel" layoutX="45.0" layoutY="291.0" maxWidth="100.0" text="Userrrrrrrr">
+                  <padding>
+                     <Insets left="10.0" />
+                  </padding>
+                  <font>
+                     <Font name="System Bold" size="13.0" />
+                  </font>
+            </Label>
+            
+                  <Button layoutX="12.0" layoutY="316.0" mnemonicParsing="false" onAction="#onLogoutAction" prefHeight="26.0" prefWidth="118.0" style="-fx-font-weight: bold;" styleClass="logout-button" stylesheets="@style.css" text="  Log out">
+               <graphic>
+                  <ImageView fitHeight="18.0" fitWidth="15.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/logout.png" />
+                     </image>
+                  </ImageView>
+               </graphic></Button>
+            <Label layoutX="54.0" layoutY="277.0" text="Welcome" textFill="#737373">
+               <font>
+                  <Font size="11.0" />
+               </font>
+            </Label>
+            <ImageView fitHeight="35.0" fitWidth="31.0" layoutX="21.0" layoutY="276.0" pickOnBounds="true" preserveRatio="true">
+               <image>
+                  <Image url="@images/profile.png" />
+               </image>
+            </ImageView>
          </children>
-         <BorderPane.margin>
-            <Insets />
-         </BorderPane.margin>
-         <padding>
-            <Insets top="10.0" />
-         </padding>
-      </VBox>
+      </AnchorPane>
    </left>
    <bottom>
-      <HBox alignment="CENTER" prefHeight="54.0" prefWidth="600.0" style="-fx-background-color: white;" BorderPane.alignment="CENTER">
-         <padding>
-            <Insets bottom="5.0" left="5.0" right="5.0" top="5.0" />
-         </padding>
+      <AnchorPane prefHeight="36.0" prefWidth="954.0" style="-fx-background-color: white;">
          <children>
-            <Label fx:id="statusLabel" text="Ready" />
+            <Label fx:id="statusLabel" layoutX="157.0" layoutY="11.0" text="Ready" textFill="#737373">
+               <font>
+                  <Font size="11.0" />
+               </font></Label>
+            <Button fx:id="deleteButton" layoutX="887.0" layoutY="8.0" mnemonicParsing="false" onAction="#onDeleteButtonClick" prefHeight="22.0" prefWidth="24.0" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
+               <graphic>
+                  <ImageView fitHeight="23.0" fitWidth="22.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/trash.png" />
+                     </image>
+                  </ImageView>
+               </graphic>
+               <tooltip>
+                  <Tooltip showDelay="0ms" text="Delete" />
+               </tooltip>
+            </Button>
          </children>
-      </HBox>
+      </AnchorPane>
    </bottom>
    <center>
-      <VBox prefHeight="200.0" prefWidth="100.0" BorderPane.alignment="CENTER">
+      <VBox prefHeight="200.0" prefWidth="676.0" BorderPane.alignment="CENTER">
          <children>
             <Pane fx:id="searchPane" prefHeight="37.0" prefWidth="790.0" style="-fx-background-color: white;">
                <children>
-                  <TextField fx:id="searchField" layoutY="5.0" prefHeight="26.0" prefWidth="205.0" promptText="Search files by name..." />
-                  <Button layoutX="212.0" layoutY="6.0" mnemonicParsing="false" onAction="#onSearchAction" text="Search">
+                  <TextField fx:id="searchField" layoutY="6.0" prefHeight="26.0" prefWidth="205.0" promptText="Search files by name..." />
+                  <Button layoutX="205.0" layoutY="2.0" mnemonicParsing="false" onAction="#onSearchAction" style="-fx-font-weight: bold;" styleClass="icon-btn" stylesheets="@style.css">
                      <font>
                         <Font name="System Bold" size="12.0" />
-                     </font></Button>
+                     </font>
+                     <tooltip>
+                        <Tooltip showDelay="0ms" text="Search">
+                           <font>
+                              <Font name="System Bold" size="12.0" />
+                           </font>
+                        </Tooltip>
+                     </tooltip>
+                     <graphic>
+                        <ImageView fitHeight="17.0" fitWidth="21.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/search-interface-symbol.png" />
+                           </image>
+                        </ImageView>
+                     </graphic>
+                  </Button>
                   
-                  <Button fx:id="accessLinkButton" layoutX="624.0" layoutY="6.0" mnemonicParsing="false" onAction="#onAccessLinkClick" text="Access Link">
-                     <font>
-                        <Font name="System Bold" size="12.0" />
-                     </font></Button>
-                  <Button fx:id="historyButton" layoutX="557.0" layoutY="6.0" mnemonicParsing="false" onAction="#onHistoryButtonClick" text="History">
-                     <font>
-                        <Font name="System Bold" size="12.0" />
-                     </font></Button>
+                  <Button fx:id="uploadButton" layoutX="698.0" layoutY="6.0" mnemonicParsing="false" onAction="#onUploadButtonClick" prefHeight="25.0" prefWidth="88.0" style="-fx-font-weight: bold; -fx-background-color: rgba(0, 122, 204, 1);" styleClass="upload-button" stylesheets="@style.css" text="Upload" textFill="WHITE">
+                     <graphic>
+                        <ImageView fitHeight="17.0" fitWidth="21.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/file.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
+                  <Button fx:id="newGroupButton" layoutX="579.0" layoutY="6.0" mnemonicParsing="false" onAction="#onNewGroupButtonClick" prefHeight="26.0" prefWidth="110.0" style="-fx-font-weight: bold;" styleClass="logout-button" stylesheets="@style.css" text="New Group">
+                     <graphic>
+                        <ImageView fitHeight="19.0" fitWidth="18.0" pickOnBounds="true" preserveRatio="true">
+                           <image>
+                              <Image url="@images/add.png" />
+                           </image>
+                        </ImageView>
+                     </graphic></Button>
                </children>
             </Pane>
-            <TableView fx:id="mainTableView" prefHeight="283.0" prefWidth="775.0" VBox.vgrow="ALWAYS">
+            <TableView fx:id="mainTableView" prefHeight="283.0" prefWidth="764.0" VBox.vgrow="ALWAYS">
               <columns>
                 <TableColumn fx:id="nameColumn" prefWidth="208.79999542236328" text="Name" />
                 <TableColumn fx:id="sizeColumn" prefWidth="227.19998168945312" text="Size (bytes)" />

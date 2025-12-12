@@ -62,7 +62,6 @@ public class LoginController {
         passwordField.setDisable(true);
         statusLabel.setText("Logging in...");
 
-        // --- PHẦN ĐÃ SỬA LẠI HOÀN CHỈNH ---
         new Thread(() -> {
             // Gọi hàm login mới, nó sẽ trả về một đối tượng User hoặc null
             User loggedInUser = socketClient.login(username, password);
@@ -95,7 +94,6 @@ public class LoginController {
                 }
             });
         }).start();
-        // --- KẾT THÚC PHẦN SỬA LẠI ---
     }
 
     @FXML

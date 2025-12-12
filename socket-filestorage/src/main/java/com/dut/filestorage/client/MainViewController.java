@@ -146,17 +146,19 @@ public class MainViewController {
                 }
                 break;
                 
-            case SHARED_FILES: // <-- LOGIC MỚI CỦA BẠN
+            case SHARED_FILES:
                 // Chỉ hiện View, Delete (để xóa lượt share), và New Group
                 viewButton.setVisible(true);
                 deleteButton.setVisible(true);
                 newGroupButton.setVisible(true);
+                accessLinkButton.setVisible(false);
                 break;
 
             case MY_GROUPS:
                 // Chỉ hiện New Group và Delete
                 newGroupButton.setVisible(true);
                 deleteButton.setVisible(true);
+                accessLinkButton.setVisible(false);
                 break;
 
             case GROUP_MEMBERS:
