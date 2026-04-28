@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.Separator?>
+<?import javafx.scene.image.Image?>
+<?import javafx.scene.image.ImageView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.Pane?>
+<?import javafx.scene.text.Font?>
+
+<ScrollPane fx:id="scrollPane" fitToWidth="true" prefViewportHeight="461.0" prefViewportWidth="844.0" xmlns="http://javafx.com/javafx/24.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.dut.filestorage.client.HomepageController">
+   <content>
+      <AnchorPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="2176.0" prefWidth="844.0" style="-fx-background-color: black;" stylesheets="@style.css">
+         <children>
+            <ImageView fitHeight="475.0" fitWidth="866.0" pickOnBounds="true" preserveRatio="true">
+               <image>
+                  <Image url="@images/homepage.jpg" />
+               </image>
+            </ImageView>
+            <Pane layoutX="437.0" layoutY="17.0" prefHeight="35.0" prefWidth="243.0" style="-fx-background-color: Black; -fx-background-radius: 8;">
+               <children>
+                  <Button fx:id="featuresButton" layoutX="14.0" layoutY="5.0" mnemonicParsing="false" onAction="#onFeaturesClick" styleClass="nav-button" stylesheets="@style.css" text="Features" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="useCasesButton" layoutX="90.0" layoutY="5.0" mnemonicParsing="false" onAction="#onUseCasesClick" styleClass="nav-button" stylesheets="@style.css" text="Use cases" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="aboutUsButton" layoutX="169.0" layoutY="5.0" mnemonicParsing="false" onAction="#onAboutUsClick" styleClass="nav-button" stylesheets="@style.css" text="About us" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+               </children>
+            </Pane>
+            <Pane layoutX="687.0" layoutY="17.0" prefHeight="35.0" prefWidth="143.0" style="-fx-background-color: Black; -fx-background-radius: 8;">
+               <children>
+                  <Pane layoutX="69.0" layoutY="5.0" opacity="0.53" prefHeight="25.0" prefWidth="64.0" style="-fx-background-color: gray; -fx-background-radius: 8;" />
+                  <Button fx:id="loginButton" layoutX="14.0" layoutY="5.0" mnemonicParsing="false" onAction="#onLoginClick" styleClass="nav-button" stylesheets="@style.css" text="Log in" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+                  <Button fx:id="signUpButton" layoutX="69.0" layoutY="4.0" mnemonicParsing="false" onAction="#onSignUpClick" prefHeight="25.0" prefWidth="64.0" styleClass="signup-button" stylesheets="@style.css" text="Sign up" textFill="WHITE">
+                     <font>
+                        <Font name="System Bold" size="12.0" />
+                     </font>
+                  </Button>
+               </children>
+            </Pane>
+            <Label layoutX="262.0" layoutY="99.0" prefHeight="201.0" prefWidth="315.0" text="How Our Users Succeed with SnS" textAlignment="CENTER" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font name="Times New Roman Bold" size="48.0" />
+               </font>
+            </Label>
+            <Label layoutX="256.0" layoutY="301.0" prefHeight="68.0" prefWidth="362.0" text="From academic projects to professional deliveries, discover how our platform empowers collaboration and simplifies workflows." textAlignment="CENTER" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font size="13.0" />
+               </font>
+            </Label>
+            <Button fx:id="logoButton" contentDisplay="GRAPHIC_ONLY" layoutX="8.0" layoutY="3.0" mnemonicParsing="false" onAction="#onLogoClick" prefHeight="40.0" prefWidth="51.0" style="-fx-background-color: transparent; box-border-color: transparent;" styleClass="logo-button" stylesheets="@style.css">
+               <graphic>
+                  <ImageView fitHeight="25.0" fitWidth="51.0" pickOnBounds="true" preserveRatio="true">
+                     <image>
+                        <Image url="@images/logo.png" />
+                     </image>
+                  </ImageView>
+               </graphic>
+            </Button>
+            
+            <ImageView fx:id="studentImg" cache="true" fitHeight="430.0" fitWidth="411.0" layoutX="37.0" layoutY="556.0" pickOnBounds="true" preserveRatio="true" />
+            
+            <ImageView fx:id="workerImg" cache="true" fitHeight="430.0" fitWidth="411.0" layoutX="389.0" layoutY="1058.0" pickOnBounds="true" preserveRatio="true" />
+            
+            <ImageView fx:id="memoriesImg" cache="true" fitHeight="430.0" fitWidth="411.0" layoutX="37.0" layoutY="1553.0" pickOnBounds="true" preserveRatio="true" />
+            
+            <Label layoutX="514.0" layoutY="699.0" prefHeight="99.0" prefWidth="230.0" text="For Students" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font name="Times New Roman Bold" size="36.0" />
+               </font>
+            </Label>
+            <Label layoutX="512.0" layoutY="773.0" prefHeight="156.0" prefWidth="288.0" text="Say goodbye to version chaos on Messenger. Create a dedicated Group for your PBL or thesis. Every member can upload reports, source code, and resources into a single, centralized workspace. Everyone always works on the latest file, ensuring your team stays synchronized and focused on delivering the best results." textFill="WHITE" wrapText="true">
+               <font>
+                  <Font size="13.0" />
+               </font>
+            </Label>
+            <Label layoutX="66.0" layoutY="1164.0" prefHeight="99.0" prefWidth="263.0" text="For Freelancers &amp; Creatives" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font name="Times New Roman Bold" size="36.0" />
+               </font>
+            </Label>
+            <Label layoutX="66.0" layoutY="1264.0" prefHeight="139.0" prefWidth="282.0" text="Impress your clients with a professional delivery experience. Upload your large design files, video proofs, or final contracts and generate a secure Public Link. Protect your work with a password and set an automatic expiration date to maintain control. Your client gets a clean, simple way to download your files, no account needed." textFill="WHITE" wrapText="true">
+               <font>
+                  <Font size="13.0" />
+               </font>
+            </Label>
+            <Label layoutX="509.0" layoutY="1689.0" prefHeight="99.0" prefWidth="274.0" text="For Personal Use" textFill="WHITE" wrapText="true">
+               <font>
+                  <Font name="Times New Roman Bold" size="36.0" />
+               </font>
+            </Label>
+            <Label layoutX="514.0" layoutY="1759.0" prefHeight="146.0" prefWidth="283.0" text="Think of us as your secure, online USB drive. Back up your important personal documents, precious photos, and essential files from your computer. In case of a hardware failure, your data is safe with us. Log in from any machine to retrieve your files, or quickly share a photo album with family and friends through a private, direct share." textFill="WHITE" wrapText="true">
+               <font>
+                  <Font size="13.0" />
+               </font>
+            </Label>
+            <Separator layoutX="36.0" layoutY="2133.0" prefHeight="0.0" prefWidth="766.0" />
+            <Label layoutX="742.0" layoutY="2145.0" text="\@2025 SnS" textFill="WHITE" />
+            <Label layoutX="502.0" layoutY="615.0" text="1." textFill="WHITE">
+               <font>
+                  <Font name="Times New Roman" size="74.0" />
+               </font>
+            </Label>
+            <Label layoutX="66.0" layoutY="1080.0" text="2." textFill="WHITE">
+               <font>
+                  <Font name="Times New Roman" size="74.0" />
+               </font>
+            </Label>
+            <Label layoutX="502.0" layoutY="1605.0" text="3." textFill="WHITE">
+               <font>
+                  <Font name="Times New Roman" size="74.0" />
+               </font>
+            </Label>
+         </children>
+      </AnchorPane>
+   </content>
+</ScrollPane>
