@@ -74,3 +74,10 @@ The academic report documents UI-based verification of registration/login, uploa
 ## Academic context
 
 PBL4 — Operating Systems & Computer Networks, Da Nang University of Science and Technology (DUT), December 2025. **Team project by Dang Hoang Huy and Nguyen Van Duong**; individual module ownership is not asserted in this README.
+
+## 📄 Documentation
+
+For detailed system architecture, hardware design,
+implementation, and experimental results:
+
+📘 [Full Project Report (PDF)](docs/PBL4-FilesStorageAndShareFile.pdf)
